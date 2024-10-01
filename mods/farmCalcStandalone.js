@@ -41,7 +41,7 @@ function maxOneShotPower(planToMap, targetZone) {
 		//No overkill perk
 		if (game.portal.Overkill.level === 0) return 1;
 		//Mastery
-		if (game.talents.overkill.purchased) power++;
+		if (masteryPurchased('overkill')) power++;
 		//Fluffy
 		const overkiller = Fluffy.isRewardActive('overkiller');
 		if (overkiller) power += overkiller;
@@ -87,8 +87,21 @@ function getAvailableSpecials(special, skipCaches) {
 		}
 	}
 
-	if (!bestMod || (bestMod === 'fa' && trimpStats.hyperspeed2)) bestMod = '0';
+	const hyp2Purchased = masteryPurchased('hyperspeed2');
+	const hypPct = masteryPurchased('liquification3') ? 75 : hyp2Purchased ? 50 : 0;
+	const hyp2 = game.global.world <= Math.floor(hze * (hypPct / 100));
+
+	if (!bestMod || (bestMod === 'fa' && hyp2)) bestMod = '0';
 	return bestMod;
+}
+
+function getSpecialTime(special) {
+	if (special === 'lmc') return 20;
+	if (special === 'lc') return 14;
+	if (special === 'smc') return 10;
+	if (special === 'hc') return 7;
+
+	return 0;
 }
 
 //I have no idea where loot > drops, hopefully somebody can tell me one day :)
@@ -108,9 +121,8 @@ function getBiome(mapGoal, resourceGoal) {
 }
 
 function _simulateSliders(mapLevel, special = getAvailableSpecials('lmc'), biome = getBiome(), sliders = [9, 9, 9], perfect = true) {
-	mapLevel = mapLevel - game.global.world;
-
 	const fragmentsOwned = game.resources.fragments.owned;
+	mapLevel = mapLevel - game.global.world;
 
 	//Gradually reduce map sliders if not using frag max setting!
 	if (mapCost(mapLevel, special, biome, sliders, perfect) > fragmentsOwned) perfect = false;
@@ -130,9 +142,10 @@ function _simulateSliders(mapLevel, special = getAvailableSpecials('lmc'), biome
 		biome = 'Random';
 	}
 
-	const lootValues = getMapMinMax('loot', sliders[0])[perfect ? 0 : 1];
+	const lootValues = getMapMinMax('loot', sliders[0])[perfect ? 1 : 0];
 	const sizeValues = getMapMinMax('size', sliders[1])[perfect ? 0 : 1];
-	const difficultyValues = getMapMinMax('difficulty', sliders[2])[perfect ? 0 : 1];
+	let difficultyValues = getMapMinMax('difficulty', sliders[2])[perfect ? 0 : 1];
+	if (challengeActive('Mapocalypse')) difficultyValues += 3;
 
 	return {
 		name: 'simulatedMap',
@@ -153,7 +166,7 @@ function _simulateSliders(mapLevel, special = getAvailableSpecials('lmc'), biome
 }
 
 function mapCost(plusLevel = 0, specialModifier = getAvailableSpecials('lmc'), biome = getBiome(), sliders = [9, 9, 9], perfect = true) {
-	const mapLevel = Math.max(game.global.world + plusLevel, 6);
+	const mapLevel = Math.max(game.global.world, 6);
 	let baseCost = sliders[0] + sliders[1] + sliders[2];
 	baseCost *= game.global.world >= 60 ? 0.74 : 1;
 
@@ -178,8 +191,8 @@ function findMap(level = 0, special = getAvailableSpecials('lmc'), biome = getBi
 		let effectiveBiome = map.name === 'Tricky Paradise' && game.resources.fragments.owned < 600 ? 'Plentiful' : biome;
 		if (map.location !== effectiveBiome && effectiveBiome !== 'Random') continue;
 		if (perfect) {
-			if (map.size > trimpStats.mapSize) continue;
-			if (map.difficulty > trimpStats.mapDifficulty) continue;
+			if (map.size > masteryPurchased('mapLoot2') ? 20 : 25) continue;
+			if (map.difficulty > 0.75) continue;
 			if (map.loot > mapLoot) continue;
 		}
 		if (game.global.world + level !== map.level) continue;
@@ -215,9 +228,14 @@ function getCurrentQuest() {
 }
 
 //AutoLevel information
-function makeAdditionalInfo() {
+function makeAdditionalInfo_Standalone() {
 	if (!game.global.mapsUnlocked) return `AL: Maps not unlocked!`;
-	const initialInfo = get_best(stats(), true);
+	if (typeof hdStats !== 'object') hdStats = {};
+	hdStats.autoLevelInitial = stats();
+	hdStats.autoLevelData = get_best(hdStats.autoLevelInitial, true);
+	hdStats.autoLevelLoot = hdStats.autoLevelData.loot.mapLevel;
+
+	const initialInfo = hdStats.autoLevelData;
 	const u2 = game.global.universe === 2;
 	const showExtraType = (u2 && getPerkLevel('Equality') > 0) || (!u2 && game.upgrades.Formations.done);
 
@@ -232,20 +250,22 @@ function makeAdditionalInfo() {
 	return `Auto Level: ${displayOutputs('loot')}`;
 }
 
-function makeAdditionalInfoTooltip(mouseover) {
+function makeAdditionalInfoTooltip_Standalone(mouseover) {
 	let tooltipText = '';
 
 	if (mouseover) {
 		tooltipText = 'tooltip(' + "'Auto Level Information', " + "'customText', " + 'event, ' + "'";
 	}
-	const biome = getBiome();
-	const specialToUse = getAvailableSpecials('lmc');
 
-	tooltipText += `<p>The map level that the script recommends using whilst farming for best loot income.</p>`;
-	tooltipText += `<p>The outputs assume you are running ${biome === 'Plentiful' ? 'Garden' : biome} biome and ${specialToUse !== '0' ? mapSpecialModifierConfig[specialToUse].name : 'no'} special maps with the best map sliders available .</p>`;
-	if (game.global.universe === 1) tooltipText += `<p>The map level is affixed with the stance that will give you the best results in the map.</p>`;
-	if (game.global.universe === 2) tooltipText += `<p>The map level is affixed with the equality level that you should use for that map level as it is one that allows you to survive against the worst enemy in the map.</p>`;
-	tooltipText += `<p>The data shown is updated every 5 seconds.</p>`;
+	if (!game.global.mapsUnlocked || typeof hdStats.autoLevelData === 'undefined' || typeof hdStats.autoLevelData.loot.mapConfig === 'undefined') tooltipText += `<p>When maps have been unlocked you will see data here for which map you should purchase or run.</p>`;
+	else {
+		tooltipText += farmCalcGetMapDetails();
+		if (game.global.universe === 1) tooltipText += `<p>The map level is affixed with the stance that will give you the best results in the map.</p>`;
+		if (game.global.universe === 2 && getPerkLevel('Equality') > 0) tooltipText += `<p>The map level is affixed with the equality level that you should use for that map level as it is one that allows you to survive against the worst enemy in the map.</p>`;
+	}
+	const remainingTime = Math.ceil(10 - (hdStats.counter % 10)) || 10;
+	tooltipText += `<p>The data shown is updated every 10 seconds. <b>${remainingTime}s</b> until the next update.</p>`;
+	tooltipText += `<p>Click this button while in the map chamber to either select your already purchased map or automatically set the inputs to the desired values.</p>`;
 
 	if (mouseover) {
 		tooltipText += "')";
@@ -256,12 +276,17 @@ function makeAdditionalInfoTooltip(mouseover) {
 	}
 }
 
-const autoLevelContainer = document.createElement('DIV');
-autoLevelContainer.setAttribute('style', 'display: block; font-size: 0.9vw; text-align: centre; background-color: rgba(0, 0, 0, 0.3);');
-const autoLevelText = document.createElement('SPAN');
-autoLevelContainer.setAttribute('onmouseover', makeAdditionalInfoTooltip(true));
-autoLevelContainer.setAttribute('onmouseout', 'tooltip("hide")');
-autoLevelText.id = 'additionalInfo';
-autoLevelContainer.appendChild(autoLevelText);
-document.getElementById('trimps').appendChild(autoLevelContainer);
-if (typeof remainingHealth === 'function') updateAdditionalInfo();
+if (typeof autoTrimpSettings === 'undefined' || (typeof autoTrimpSettings !== 'undefined' && typeof autoTrimpSettings.ATversion !== 'undefined' && !autoTrimpSettings.ATversion.includes('SadAugust'))) {
+	if (document.getElementById('additionalInfo') === null) {
+		const autoLevelContainer = document.createElement('DIV');
+		autoLevelContainer.setAttribute('style', 'display: block; font-size: 0.9vw; text-align: centre; solid black; transform:translateY(-1.5vh); max-width: 95%; margin: 0 auto');
+		autoLevelContainer.setAttribute('class', 'workBtn pointer noSelect');
+		const autoLevelText = document.createElement('SPAN');
+		autoLevelContainer.addEventListener('mouseover', () => makeAdditionalInfoTooltip_Standalone(true));
+		autoLevelContainer.addEventListener('click', farmCalcSetMapSliders);
+		autoLevelContainer.setAttribute('onmouseout', 'tooltip("hide")');
+		autoLevelText.id = 'additionalInfo';
+		autoLevelContainer.appendChild(autoLevelText);
+		document.getElementById('trimps').appendChild(autoLevelContainer);
+	}
+}

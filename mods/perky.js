@@ -1,5 +1,8 @@
 //Setup for non-AT users
 if (typeof MODULES === 'undefined') MODULES = {};
+if (typeof _displaySpireImport !== 'function') function _displaySpireImport() {}
+if (typeof _getChallenge2Info !== 'function') function _getChallenge2Info() {}
+if (typeof importExportTooltip !== 'function') function importExportTooltip() {}
 
 if (typeof $$ !== 'function') {
 	$$ = function (a) {
@@ -8,6 +11,11 @@ if (typeof $$ !== 'function') {
 	$$$ = function (a) {
 		return [].slice.apply(document.querySelectorAll(a));
 	};
+}
+
+function masteryPurchased(name) {
+	if (!game.talents[name]) throw `unknown mastery: ${name}`;
+	return game.talents[name].purchased;
 }
 
 function legalizeInput(settingID) {
@@ -42,32 +50,41 @@ function allocatePerky() {
 	cancelTooltip();
 }
 
-function mastery(name) {
-	if (!game.talents[name]) throw 'unknown mastery: ' + name;
-	return game.talents[name].purchased;
-}
-
 var Perk = /** @class */ (function () {
-	function Perk(perkName, scaling) {
-		this.base_cost = game.portal[perkName].priceBase;
-		this.cost_increment = game.portal[perkName].additive ? game.portal[perkName].additiveInc : 0;
+	function Perk(perkName, scaling, lockLevel = false) {
+		const { priceBase, additive, additiveInc, max, specialGrowth, locked, level, levelTemp } = game.portal[perkName];
+		const fixedLevel = level + (levelTemp ? levelTemp : 0);
+
+		this.base_cost = priceBase;
+		this.cost_increment = additive ? additiveInc : 0;
 		this.scaling = scaling;
-		this.max_level = game.portal[perkName].max ? game.portal[perkName].max : Infinity;
-		this.cost_exponent = game.portal[perkName].specialGrowth ? game.portal[perkName].specialGrowth : 1.3;
-		this.locked = game.portal[perkName].locked;
+		this.max_level = lockLevel ? fixedLevel : max ? max : Infinity;
+		this.cost_exponent = specialGrowth ? specialGrowth : 1.3;
+		this.locked = locked;
 		this.level = 0;
-		this.min_level = !game.global.canRespecPerks ? game.portal[perkName].level : 0;
+		this.min_level = lockLevel ? fixedLevel : !game.global.canRespecPerks || (game.global.viewingUpgrades && !game.global.respecActive) ? level : 0;
 		this.cost = 0;
 		this.gain = 0;
 		this.bonus = 1;
 		this.cost = this.base_cost;
+
+		this.fixed = lockLevel;
+		this.fixedLevel = fixedLevel;
+		this.fixedCost = 0;
+
+		if (lockLevel) {
+			const spent = this.level_up(fixedLevel, true);
+			this.fixedCost = spent;
+			this.level_up(-fixedLevel, true);
+			MODULES.autoPerks.fixedCost += spent;
+		}
 	}
 
 	Perk.prototype.levellable = function (he_left) {
 		return !this.locked && this.level < this.max_level && this.cost * Math.max(1, Math.floor(this.level / 1e12)) <= he_left;
 	};
 
-	Perk.prototype.level_up = function (amount) {
+	Perk.prototype.level_up = function (amount, ignoreFixed = false) {
 		this.level += amount;
 		this.bonus = this.scaling(this.level);
 		let spent = this.cost;
@@ -77,6 +94,10 @@ var Perk = /** @class */ (function () {
 			this.cost += amount * this.cost_increment;
 		} else {
 			this.cost = Math.ceil(this.level / 2 + this.base_cost * Math.pow(this.cost_exponent, this.level));
+		}
+
+		if (this.fixed && !ignoreFixed) {
+			MODULES.autoPerks.fixedCost += amount > 0 ? -spent : amount < 0 ? spent : 0;
 		}
 
 		return spent;
@@ -123,11 +144,12 @@ function initPresetPerky() {
 		attackWeight: +$$('#weight-atk').value,
 		healthWeight: +$$('#weight-hp').value,
 		xpWeight: +$$('#weight-xp').value,
-		...presets
+		...presets,
+		lockedPerks: settingInputs.lockedPerks || undefined
 	};
 }
 
-function fillPresetPerky(specificPreset) {
+function fillPresetPerky(specificPreset, forceDefault) {
 	if (specificPreset) $$('#preset').value = specificPreset;
 
 	const defaultWeights = {
@@ -148,7 +170,7 @@ function fillPresetPerky(specificPreset) {
 		coord: [0, 40, 1, 0],
 		trimp: [0, 99, 1, 0],
 		metal: [0, 7, 1, 0],
-		c2: [0, 7, 1, 0],
+		c2: [0, 7, 1, 1],
 		income: [0, 0, 0, 0],
 		unesscented: [0, 1, 0, 0],
 		nerfeder: [0, 1, 0, 0],
@@ -157,18 +179,20 @@ function fillPresetPerky(specificPreset) {
 
 	const localData = initPresetPerky();
 	const preset = $$('#preset').value;
-	const weights = localData[preset] === null || localData[preset] === undefined ? defaultWeights[preset] : localData[preset];
+	const weights = localData[preset] === null || localData[preset] === undefined || forceDefault ? defaultWeights[preset] : localData[preset];
 
 	const ids = ['weight-he', 'weight-atk', 'weight-hp', 'weight-xp'];
 	ids.forEach((id, index) => {
 		document.querySelector(`#${id}`).value = +weights[index];
 	});
+
 	savePerkySettings();
 }
 
 function savePerkySettings() {
 	const saveData = initPresetPerky();
 	const settingInputs = { preset: document.querySelector('#preset').value };
+	settingInputs.lockedPerks = saveData.lockedPerks || undefined;
 
 	MODULES.autoPerks.GUI.inputs.forEach((item) => {
 		settingInputs[item] = document.querySelector(`#${item}`).value;
@@ -192,17 +216,20 @@ function savePerkySettings() {
 }
 
 function calculateDgPopGain() {
+	const { Efficiency, Capacity, Supply, Overclocker } = game.generatorUpgrades;
+	const { Storage, Slowburn } = game.permanentGeneratorUpgrades;
+
 	const maxZone = game.stats.highestLevel.valueTotal() / 2 + 115;
-	const efficiency = 5e8 + 5e7 * game.generatorUpgrades.Efficiency.upgrades;
-	const capacity = 3 + 0.4 * game.generatorUpgrades.Capacity.upgrades;
-	const maxFuel = game.permanentGeneratorUpgrades.Storage.owned ? capacity * 1.5 : capacity;
-	const supply = 230 + 2 * game.generatorUpgrades.Supply.upgrades;
-	const overclock = game.generatorUpgrades.Overclocker.upgrades && 1 - 0.5 * Math.pow(0.99, game.generatorUpgrades.Overclocker.upgrades - 1);
-	const burnRate = game.permanentGeneratorUpgrades.Slowburn.owned ? 0.4 : 0.5;
-	const cells = mastery('magmaFlow') ? 18 : 16;
-	const acceleration = mastery('quickGen') ? 1.03 : 1.02;
-	const hyperspeed2 = mastery('hyperspeed2') ? game.stats.highestLevel.valueTotal() / 2 : 0;
-	const blacksmith = 0.5 * mastery('blacksmith') + 0.25 * mastery('blacksmith2') + 0.15 * mastery('blacksmith3');
+	const efficiency = 5e8 + 5e7 * Efficiency.upgrades;
+	const capacity = 3 + 0.4 * Capacity.upgrades;
+	const maxFuel = Storage.owned ? capacity * 1.5 : capacity;
+	const supply = 230 + 2 * Supply.upgrades;
+	const overclock = Overclocker.upgrades && 1 - 0.5 * Math.pow(0.99, Overclocker.upgrades - 1);
+	const burnRate = Slowburn.owned ? 0.4 : 0.5;
+	const cells = masteryPurchased('magmaFlow') ? 18 : 16;
+	const acceleration = masteryPurchased('quickGen') ? 1.03 : 1.02;
+	const hyperspeed2 = masteryPurchased('hyperspeed2') ? game.stats.highestLevel.valueTotal() / 2 : 0;
+	const blacksmith = 0.5 * masteryPurchased('blacksmith') + 0.25 * masteryPurchased('blacksmith2') + 0.15 * masteryPurchased('blacksmith3');
 	const blacksmithTotal = blacksmith * game.stats.highestLevel.valueTotal();
 	let housing = 0;
 	let fuel = 0;
@@ -241,11 +268,11 @@ function populatePerkyData() {
 
 	// Income
 	const spires = Math.min(Math.floor((zone - 101) / 100), game.global.spiresCompleted);
-	const turkimpTimer = mastery('turkimp2') ? 1 : mastery('turkimp') ? 0.4 : 0.25;
+	const turkimpTimer = masteryPurchased('turkimp2') ? 1 : masteryPurchased('turkimp') ? 0.4 : 0.25;
 	const cache = hze < 60 ? 0 : hze < 85 ? 7 : hze < 160 ? 10 : hze < 185 ? 14 : 20;
 	let prod = 1 + turkimpTimer;
 	let loot = 1 + 0.333 * turkimpTimer;
-	loot *= hze < 100 ? 0.7 : 1 + (mastery('stillRowing') ? 0.3 : 0.2) * spires;
+	loot *= hze < 100 ? 0.7 : 1 + (masteryPurchased('stillRowing') ? 0.3 : 0.2) * spires;
 
 	let chronojest = 27 * game.unlocks.imps.Jestimp + 15 * game.unlocks.imps.Chronoimp;
 
@@ -254,7 +281,7 @@ function populatePerkyData() {
 		else if (mod[0] === 'metalDrop') loot *= 1 + 0.01 * mod[1];
 	}
 
-	chronojest += (mastery('mapLoot2') ? 5 : 4) * cache;
+	chronojest += (masteryPurchased('mapLoot2') ? 5 : 4) * cache;
 
 	const preset = $$('#preset').value;
 	const result = {
@@ -282,10 +309,11 @@ function populatePerkyData() {
 			magn: game.unlocks.imps.Magnimp,
 			taunt: game.unlocks.imps.Tauntimp,
 			ven: game.unlocks.imps.Venimp,
-			chronojest: chronojest,
-			prod: prod,
-			loot: loot,
-			breed_timer: mastery('patience') ? 45 : 30
+			chronojest,
+			prod,
+			loot,
+			breed_timer: masteryPurchased('patience') ? 45 : 30,
+			army_mod: game.resources.trimps.maxMod
 		}
 	};
 
@@ -370,8 +398,13 @@ function parse_perks() {
 
 	const perks = {};
 
+	const calcNames = { 1: 'Perky', 2: 'Surky' };
+	const calcName = calcNames[portalUniverse];
+	let perkLocks = JSON.parse(localStorage.getItem(`${calcName.toLowerCase()}Inputs`));
+	MODULES.autoPerks.fixedCost = 0;
+
 	for (const [name, func] of Object.entries(perkData)) {
-		perks[name] = new Perk(name, func);
+		perks[name] = new Perk(name, func, perkLocks.lockedPerks ? perkLocks.lockedPerks[name] : false);
 	}
 
 	return perks;
@@ -394,12 +427,14 @@ function optimize() {
 	const base_income = 600 * mod.whip * books;
 	const base_helium = Math.pow(zone - 19, 2);
 	const max_tiers = zone / 5 + +((zone - 1) % 10 < 5);
+
 	const exponents = {
 		cost: Math.pow(1.069, 0.85 * (zone < 60 ? 57 : 53)),
 		attack: Math.pow(1.19, 13),
 		health: Math.pow(1.19, 14),
 		block: Math.pow(1.19, 10)
 	};
+
 	const weightSum = weight.attack + weight.health;
 	const equip_cost = {
 		attack: (211 * weightSum) / weight.attack,
@@ -496,6 +531,7 @@ function optimize() {
 	function soldiers() {
 		const ratio = 1 + 0.25 * Coordinated.bonus;
 		let pop = (mod.soldiers || trimps()) / 3;
+		if (game.global.viewingUpgrades) pop *= mod.army_mod;
 		if (mod.soldiers > 1) pop += 36000 * Bait.bonus;
 		const unbought_coords = Math.max(0, Math.log(group_size[Coordinated.level] / pop) / Math.log(ratio));
 		return group_size[0] * Math.pow(1.25, -unbought_coords);
@@ -510,11 +546,12 @@ function optimize() {
 
 	// Total attack
 	function attack() {
+		const gatorCount = gators();
 		let attack = (0.15 + equip('attack')) * Math.pow(0.8, magma());
 		attack *= Power.bonus * Power_II.bonus * Relentlessness.bonus;
 		attack *= Siphonology.bonus * Range.bonus * Anticipation.bonus;
 		attack *= fluffy.attack[Capable.level];
-		attack *= mastery('amalg') ? Math.pow(1.5, gators()) : 1 + 0.5 * gators();
+		attack *= masteryPurchased('amalg') ? Math.pow(1.5, gatorCount) : 1 + 0.5 * gatorCount;
 		return soldiers() * attack;
 	}
 
@@ -528,23 +565,26 @@ function optimize() {
 		let block = 0.04 * gyms * Math.pow(1 + mystic / 100, gyms) * (1 + tacular * trainers);
 		// target number of attacks to survive
 		let attacks = 60;
+		const breedTimer = breed();
+		const soldier = soldiers();
 		if (zone < 70) {
 			// no geneticists
 			// number of ticks needed to repopulate an army
-			const timer = Math.log(1 + (soldiers() * breed()) / Bait.bonus) / Math.log(1 + breed());
+			const timer = Math.log(1 + (soldier * breedTimer) / Bait.bonus) / Math.log(1 + breedTimer);
 			attacks = timer / ticks();
 		} else {
 			// geneticists
 			const fighting = Math.min(group_size[Coordinated.level] / trimps(), 1 / 3);
 			const target_speed = fighting > 1e-9 ? (Math.pow(0.5 / (0.5 - fighting), 0.1 / mod.breed_timer) - 1) * 10 : fighting / mod.breed_timer;
-			const geneticists = Math.log(breed() / target_speed) / -Math.log(0.98);
+			const geneticists = Math.log(breedTimer / target_speed) / -Math.log(0.98);
 			health *= Math.pow(1.01, geneticists);
 			health *= Math.pow(1.332, gators());
 		}
 		health /= attacks;
+
 		if (zone < 60) block += equip('block');
 		else block = Math.min(block, 4 * health);
-		return soldiers() * (block + health);
+		return soldier * (block + health);
 	}
 
 	const xp = function () {
@@ -563,21 +603,24 @@ function optimize() {
 		return Overkill.bonus;
 	};
 
-	const stats = { agility: agility, helium: helium, xp: xp, attack: attack, health: health, overkill: overkill, trimps: trimps, income: income };
+	const stats = { agility, helium, xp, attack, health, overkill, trimps, income };
 
 	function score() {
 		let result = 0;
+
 		for (let i in weight) {
 			if (!weight[i]) continue;
 			const stat = stats[i]();
 			if (!isFinite(stat)) throw Error(i + ' is ' + stat);
 			result += weight[i] * Math.log(stat);
 		}
+
 		return result;
 	}
 
 	function recompute_marginal_efficiencies() {
 		const baseline = score();
+
 		for (let name in perks) {
 			let perk = perks[name];
 			if (perk.cost_increment || !perk.levellable(he_left)) continue;
@@ -585,9 +628,25 @@ function optimize() {
 			perk.gain = score() - baseline;
 			perk.level_up(-1);
 		}
+
 		const perkNames = ['Looting', 'Carpentry', 'Motivation', 'Power', 'Toughness'];
 		for (let name of perkNames) {
-			perks[name + '_II'].gain = (perks[name].gain * perks[name + '_II'].log_ratio()) / perks[name].log_ratio();
+			let resetGain = false;
+			let perk = perks[name];
+
+			if (perk.gain === 0) {
+				perk.level_up(1);
+				perk.gain = score() - baseline;
+				perk.level_up(-1);
+				resetGain = true;
+			}
+
+			let perkII = perks[`${name}_II`];
+			perkII.gain = (perk.gain * perkII.log_ratio()) / perk.log_ratio();
+
+			if (resetGain) {
+				perk.gain = 0;
+			}
 		}
 	}
 
@@ -619,6 +678,9 @@ function optimize() {
 		Bait.min_level = 1;
 		if ($$('#preset').value !== 'trapper') Pheromones.min_level = 1;
 	}
+
+	if (game.global.viewingUpgrades) Coordinated.min_level = game.portal.Coordinated.level;
+
 	// Fluffy
 	fluffy.attack = [];
 	const potential = Math.log((0.003 * fluffy.xp) / Math.pow(5, fluffy.prestige) + 1) / Math.log(4);
@@ -627,18 +689,22 @@ function optimize() {
 		const progress = level === cap ? 0 : (Math.pow(4, potential - level) - 1) / 3;
 		fluffy.attack[cap] = 1 + Math.pow(5, fluffy.prestige) * 0.1 * (level / 2 + progress) * (level + 1);
 	}
+
 	// Minimum levels on perks
 	for (let name in perks) {
 		const perk = perks[name];
 		if (perk.cost_increment) he_left -= perk.level_up(perk.min_level);
 		else while (perk.level < perk.min_level) he_left -= perk.level_up(1);
 	}
+
 	let ratio = 0.25;
 	while (Capable.levellable(he_left * ratio)) {
 		he_left -= Capable.level_up(1);
 		ratio = Capable.level <= Math.floor(potential) && zone > 300 && weight.xp > 0 ? 0.25 : 0.01;
 	}
+
 	if (zone <= 300 || potential >= Capable.level) weight.xp = 0;
+
 	// Main loop
 	const sorted_perks = Object.keys(perks)
 		.map(function (name) {
@@ -647,27 +713,72 @@ function optimize() {
 		.filter(function (perk) {
 			return perk.levellable(he_left);
 		});
+
 	const reference_he = he_left;
+
 	for (let x = 0.999; x > 1e-12; x *= x) {
 		const he_target = reference_he * x;
 		recompute_marginal_efficiencies();
 		sorted_perks.sort(function (a, b) {
 			return b.gain / b.cost - a.gain / a.cost;
 		});
+
+		let brokenLoop = false;
+
 		while (he_left > he_target && sorted_perks.length) {
 			const best = sorted_perks.shift();
 			if (!best.levellable(he_left)) continue;
 			spend_he(best, he_left - he_target);
+
+			/* if (MODULES.autoPerks.fixedCost > he_left) {
+				while (MODULES.autoPerks.fixedCost > he_left) {
+					he_left += best.level_up(-1);
+					brokenLoop = true;
+					break;
+				}
+
+				for (let name in perks) {
+					const perk = perks[name];
+					if (perk.fixed) {
+						perk.min_level = perk.max_level;
+
+						if (perk.cost_increment && perk.level < perk.min_level) he_left -= perk.level_up(perk.min_level - perk.level);
+						else while (perk.level < perk.min_level) he_left -= perk.level_up(1);
+					}
+				}
+
+				MODULES.autoPerks.fixedCost = 0;
+				break;
+			} */
+
 			let i = 0;
 			while (sorted_perks[i] && sorted_perks[i].gain / sorted_perks[i].cost > best.gain / best.cost) i++;
 			sorted_perks.splice(i, 0, best);
 		}
+
+		if (brokenLoop) {
+			continue;
+		}
 	}
+
 	if (he_left + 1 < total_he / 1e12 && Toughness_II.level > 0) {
 		--Toughness_II.level;
 		he_left += Toughness_II.cost;
 	}
+
 	return perks;
+}
+
+function togglePerkLock(id, calcName) {
+	let settingInputs = JSON.parse(localStorage.getItem(`${calcName.toLowerCase()}Inputs`));
+	if (!settingInputs) return;
+
+	if (!settingInputs['lockedPerks']) settingInputs['lockedPerks'] = {};
+	if (!settingInputs['lockedPerks'][id]) settingInputs['lockedPerks'][id] = false;
+
+	settingInputs['lockedPerks'][id] = !settingInputs['lockedPerks'][id];
+	localStorage.setItem(`${calcName.toLowerCase()}Inputs`, JSON.stringify(settingInputs));
+	document.getElementById(`lock${id}`).classList = `icomoon ${settingInputs['lockedPerks'][id] ? 'icon-locked' : 'icon-unlocked'}`;
 }
 
 MODULES.autoPerks = {
@@ -716,8 +827,50 @@ MODULES.autoPerks = {
 	},
 
 	displayGUI: function (universe = portalUniverse) {
+		if (portalUniverse === -1) universe = portalUniverse = game.global.universe;
+
 		const calcNames = { 1: 'Perky', 2: 'Surky' };
 		const calcName = calcNames[universe] || universe;
+
+		if (game.global.viewingUpgrades || portalWindowOpen) {
+			let $portalUpgradesHere = document.getElementById('portalUpgradesHere');
+
+			if ($portalUpgradesHere) {
+				let lockPerksText = 'When locked the current perk levels are not changed when you allocate perks.';
+				let perkLocks = JSON.parse(localStorage.getItem(`${calcName.toLowerCase()}Inputs`));
+				let $perkIcons = $portalUpgradesHere.children;
+
+				for (let i = 0; i < $perkIcons.length; i++) {
+					const $perkIcon = $perkIcons[i];
+					if ($perkIcon.id === 'equalityScaling') continue;
+
+					const tempDiv = document.createElement('div');
+					tempDiv.id = `lock${$perkIcon.id}`;
+					if (document.getElementById(tempDiv.id)) continue;
+
+					$perkIcon.style.position = 'relative';
+					const iconOffsetRight = game.options.menu.detailedPerks.enabled ? 5.3 : 7;
+					const iconOffsetBottom = game.options.menu.detailedPerks.enabled ? 11 : 5;
+					const iconScale = game.options.menu.detailedPerks.enabled ? 1.05 : 0.65;
+					tempDiv.style = `display: block; position: absolute; bottom: ${iconOffsetBottom}px; right: ${iconOffsetRight}px; width: 10%; background: none; transform: scale(${iconScale});`;
+					tempDiv.classList = `icomoon ${perkLocks && perkLocks['lockedPerks'] && perkLocks['lockedPerks'][$perkIcon.id] ? 'icon-locked' : 'icon-unlocked'}`;
+
+					tempDiv.addEventListener('click', (event) => {
+						event.stopPropagation();
+						togglePerkLock($perkIcon.id, calcName);
+					});
+
+					tempDiv.addEventListener('mouseover', (event) => {
+						event.stopPropagation();
+						tooltip('Lock Perk', 'customText', event, lockPerksText);
+					});
+					tempDiv.setAttribute('onmouseout', 'tooltip("hide")');
+
+					$perkIcon.insertBefore(tempDiv, $perkIcon.firstChild);
+				}
+			}
+		}
+
 		if (MODULES.autoPerks.loaded === calcName) return;
 
 		const presets = MODULES.autoPerks[`presets${calcName}`];
@@ -732,11 +885,16 @@ MODULES.autoPerks = {
 		const apGUI = MODULES.autoPerks.GUI;
 
 		//Setup Auto Allocate button
+		let allocateText = 'Clears all perks and buys optimal levels in each perk.';
+		allocateText += '<br>';
+		allocateText += 'When in the <b>View Perks</b> window it will only use your respec if you press the <b>Respec</b> button.';
+		if (calcName === 'Surky') allocateText = '<br>Sets your target zone, tribute, meteorologist, collector & smithy values to your current run values if they are higher than your inputs.<br><br>' + allocateText;
+
 		apGUI.$allocatorBtn = document.createElement('DIV');
 		apGUI.$allocatorBtn.id = 'allocatorBtn';
 		apGUI.$allocatorBtn.setAttribute('class', 'btn inPortalBtn settingsBtn settingBtntrue');
 		apGUI.$allocatorBtn.setAttribute('onclick', 'run' + calcName + '()');
-		apGUI.$allocatorBtn.setAttribute('onmouseover', 'tooltip("Auto Allocate", "customText", event, "Clears all perks and buy optimal levels in each perk.")');
+		apGUI.$allocatorBtn.setAttribute('onmouseover', `tooltip("Auto Allocate", "customText", event, \`${allocateText}\`)`);
 		apGUI.$allocatorBtn.setAttribute('onmouseout', 'tooltip("hide")');
 		apGUI.$allocatorBtn.textContent = 'Allocate Perks';
 		//Distance from Portal/Cancel/Respec buttons
@@ -792,6 +950,18 @@ MODULES.autoPerks = {
 		let $portalWrapper = document.getElementById('portalWrapper');
 		$portalWrapper.appendChild(apGUI.$customRatios);
 
+		//Amend reset to default weights below input boxes
+		let resetWeightsText = 'Clears your current input values for this preset and resets them to their default values.';
+
+		apGUI.$resetWeightsBtn = document.createElement('DIV');
+		apGUI.$resetWeightsBtn.id = 'resetWeightsBtn';
+		apGUI.$resetWeightsBtn.setAttribute('class', 'noselect challengeThing thing settingBtnfalse');
+		apGUI.$resetWeightsBtn.setAttribute('onclick', `importExportTooltip("resetPerkPreset", "${calcName}");`);
+		apGUI.$resetWeightsBtn.setAttribute('onmouseover', `tooltip("Reset Preset Weights", "customText", event, \`${resetWeightsText}\`)`);
+		apGUI.$resetWeightsBtn.setAttribute('onmouseout', 'tooltip("hide")');
+		apGUI.$resetWeightsBtn.textContent = 'Reset Preset Weights';
+		if (document.getElementById(apGUI.$resetWeightsBtn.id) === null) apGUI.$customRatios.appendChild(apGUI.$resetWeightsBtn);
+
 		if (calcName === 'Perky') {
 			if (!settingInputs) {
 				document.querySelector('#targetZone').value = Math.max(20, game.stats.highestVoidMap.valueTotal || game.global.highestLevelCleared);
@@ -810,8 +980,10 @@ MODULES.autoPerks = {
 		} else if (calcName === 'Surky') {
 			if (!settingInputs) {
 				saveSurkySettings(true);
+				fillPresetSurky('ezfarm', true);
 				settingInputs = JSON.parse(localStorage.getItem(calcName.toLowerCase() + 'Inputs'));
 			}
+
 			const preset = settingInputs.preset || 'ezfarm';
 			document.querySelector('#preset').value = preset;
 			document.querySelector('#radonPerRunDiv').style.display = 'none';
@@ -1136,46 +1308,104 @@ MODULES.autoPerks = {
 	}
 };
 
-var originalSwapPortalUniverse = swapPortalUniverse;
-swapPortalUniverse = function () {
-	originalSwapPortalUniverse(...arguments);
-	MODULES.autoPerks.displayGUI();
-};
+function perkCalcPreset() {
+	return document.querySelector('#preset').value;
+}
 
-var originalViewPortalUpgrades = viewPortalUpgrades;
-viewPortalUpgrades = function () {
-	originalViewPortalUpgrades(...arguments);
-	MODULES.autoPerks.displayGUI();
-};
+if (typeof originalSwapPortalUniverse !== 'function') {
+	var originalSwapPortalUniverse = swapPortalUniverse;
+	swapPortalUniverse = function () {
+		originalSwapPortalUniverse(...arguments);
+		MODULES.autoPerks.displayGUI();
+	};
+}
 
-var originalPortalClicked = portalClicked;
-portalClicked = function () {
-	originalPortalClicked(...arguments);
-	MODULES.autoPerks.displayGUI();
-};
+if (typeof originalViewPortalUpgrades !== 'function') {
+	var originalViewPortalUpgrades = viewPortalUpgrades;
+	viewPortalUpgrades = function () {
+		originalViewPortalUpgrades(...arguments);
+		MODULES.autoPerks.displayGUI();
+	};
+}
+
+if (typeof originalPortalClicked !== 'function') {
+	var originalPortalClicked = portalClicked;
+	portalClicked = function () {
+		originalPortalClicked(...arguments);
+		MODULES.autoPerks.displayGUI();
+	};
+}
+
+if (typeof originalDisplayPortalUpgrades !== 'function') {
+	var originalDisplayPortalUpgrades = displayPortalUpgrades;
+	displayPortalUpgrades = function () {
+		originalDisplayPortalUpgrades(...arguments);
+		MODULES.autoPerks.displayGUI();
+	};
+}
 
 /* If using standalone version then when load Surky and CSS files. */
 if (typeof autoTrimpSettings === 'undefined' || (typeof autoTrimpSettings !== 'undefined' && typeof autoTrimpSettings.ATversion !== 'undefined' && !autoTrimpSettings.ATversion.includes('SadAugust'))) {
-	/* Load CSS so that the UI is visible */
-	const linkStylesheet = document.createElement('link');
-	linkStylesheet.rel = 'stylesheet';
-	linkStylesheet.type = 'text/css';
-	linkStylesheet.href = 'https://sadaugust.github.io/AutoTrimps/css/tabsStandalone.css';
-	document.head.appendChild(linkStylesheet);
-
-	function injectScript(id, src) {
-		const script = document.createElement('script');
-		script.id = id;
-		script.src = src;
-		script.setAttribute('crossorigin', 'anonymous');
-		document.head.appendChild(script);
+	function updateAdditionalInfo() {
+		if (!usingRealTimeOffline) {
+			const infoElem = document.getElementById('additionalInfo');
+			const infoStatus = makeAdditionalInfo_Standalone();
+			if (infoElem.innerHTML !== infoStatus) infoElem.innerHTML = infoStatus;
+			infoElem.parentNode.setAttribute('onmouseover', makeAdditionalInfoTooltip_Standalone(true));
+		}
 	}
 
-	injectScript('AutoTrimps-SadAugust_Surky', 'https://sadaugust.github.io/AutoTrimps/mods/surky.js');
+	(async function () {
+		let basepathPerkCalc = 'https://sadaugust.github.io/AutoTrimps/';
+		if (typeof localVersion !== 'undefined') basepathPerkCalc = 'https://localhost:8887/AutoTrimps_Local/';
+		const mods = ['surky'];
+		const modules = ['import-export', 'MAZ'];
 
-	/* Load the portal UI */
-	setTimeout(function () {
-		MODULES.autoPerks.displayGUI();
-		console.log('Surky & Perky loaded.');
-	}, 3000);
+		let linkStylesheet = document.createElement('link');
+		linkStylesheet.rel = 'stylesheet';
+		linkStylesheet.type = 'text/css';
+		linkStylesheet.href = basepathPerkCalc + 'css/perky.css';
+		document.head.appendChild(linkStylesheet);
+
+		function loadModules(fileName, prefix = '', retries = 3) {
+			return new Promise((resolve, reject) => {
+				const script = document.createElement('script');
+				script.src = `${basepathPerkCalc}${prefix}${fileName}.js`;
+				script.id = `${fileName}_MODULE`;
+				script.async = false;
+				script.defer = true;
+
+				script.addEventListener('load', () => {
+					resolve();
+				});
+
+				script.addEventListener('error', () => {
+					console.log(`Failed to load module: ${fileName} from path: ${prefix || ''}. Retries left: ${retries - 1}`);
+					loadModules(fileName, prefix, retries - 1)
+						.then(resolve)
+						.catch(reject);
+				});
+
+				document.head.appendChild(script);
+			});
+		}
+
+		try {
+			const toLoad = [...mods, ...modules];
+
+			for (const module of toLoad) {
+				const path = mods.includes(module) ? 'mods/' : modules.includes(module) ? 'modules/' : '';
+				await loadModules(module, path);
+			}
+
+			MODULES.autoPerks.displayGUI();
+			console.log('The surky & perky mosd have finished loading.');
+			message('The surky & perky mods have finished loading.', 'Loot');
+		} catch (error) {
+			console.error('Error loading script', error);
+			message('Surky & Perky have failed to load. Refresh your page and try again.', 'Loot');
+			tooltip('Failed to load Surky & Perky', 'customText', undefined, 'Surky & Perky have failed to load. Refresh your page and try again.');
+			verticalCenterTooltip(true);
+		}
+	})();
 }

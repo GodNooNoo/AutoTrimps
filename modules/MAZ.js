@@ -1,68 +1,3 @@
-function MAZLookalike(event, titleText) {
-	const eventHandlers = {
-		mapSettings: mapSettingsDisplay,
-		AutoStructure: autoStructureDisplay,
-		AutoJobs: autoJobsDisplay,
-		UniqueMaps: uniqueMapsDisplay,
-		MessageConfig: messageDisplay,
-		DailyAutoPortal: dailyPortalModsDisplay,
-		c2Runner: c2RunnerDisplay,
-		/* Import Export Functions */
-		exportAutoTrimps: _displayExportAutoTrimps,
-		importAutoTrimps: _displayImportAutoTrimps,
-		spireImport: _displaySpireImport,
-		priorityOrder: _displayPriorityOrder,
-		c2table: _displayC2Table,
-		resetDefaultSettingsProfiles: _displayResetDefaultSettingsProfiles,
-		disableSettingsProfiles: _displayDisableSettingsProfiles,
-		setCustomChallenge: _displaySetCustomChallenge,
-		timeWarp: _displayTimeWarp
-	};
-
-	const titleTexts = {
-		AutoStructure: 'Configure AutoTrimps AutoStructure',
-		AutoJobs: 'Configure AutoTrimps AutoJobs',
-		UniqueMaps: 'Unique Maps',
-		MessageConfig: 'Message Config',
-		DailyAutoPortal: 'Daily Auto Portal',
-		c2Runner: _getChallenge2Info() + ' Runner',
-		/* Import Export Titles */
-		exportAutoTrimps: titleText === 'downloadSave' ? 'downloadSave' : 'Export AutoTrimps Settings',
-		importAutoTrimps: 'Import AutoTrimps Settings',
-		spireImport: 'Import Spire Settings',
-		priorityOrder: 'Priority Order Table',
-		c2table: _getChallenge2Info() + ' Table',
-		resetDefaultSettingsProfiles: 'Reset Default Settings',
-		disableSettingsProfiles: 'Disable All Settings',
-		setCustomChallenge: 'Set Custom Challenge',
-		timeWarp: 'Time Warp Hours'
-	};
-
-	cancelTooltip();
-	let tooltipDiv = document.getElementById('tooltipDiv');
-	let tooltipText;
-	let costText = '';
-	let ondisplay = null;
-	if (event !== 'mapSettings') swapClass('tooltipExtra', 'tooltipExtraNone', tooltipDiv);
-
-	if (eventHandlers[event]) {
-		titleText = titleTexts[event] || titleText;
-		[tooltipDiv, tooltipText, costText, ondisplay] = eventHandlers[event](tooltipDiv, titleText);
-	}
-
-	if (event) {
-		game.global.lockTooltip = true;
-		document.getElementById('tipText').className = '';
-		document.getElementById('tipText').innerHTML = tooltipText;
-		document.getElementById('tipTitle').innerHTML = titleText;
-		document.getElementById('tipCost').innerHTML = costText;
-		tooltipDiv.style.display = 'block';
-		if (typeof ondisplay === 'function') ondisplay();
-	}
-
-	if (titleText === 'downloadSave') _downloadSave(event);
-}
-
 function mapSettingsDisplay(elem, titleText) {
 	MODULES.popups.mazWindowOpen = true;
 
@@ -431,7 +366,7 @@ function _mapSettingsDefaultTitles(varPrefix, s) {
 	if (s.mapBonus) tooltipText += `<div class='windowDisplay windowSpecial${varPrefix}'>Special</div>`;
 	if (s.raiding && !s.bionic) tooltipText += `<div class='windowDisplay windowRecycle'>Recycle<br>Maps</div>`;
 	if (s.alchemy) tooltipText += `<div class='windowDisplay windowStorage'>Void<br>Purchase</div>`;
-	if (s.quagmire) tooltipText += `<div class='windowDisplay windowAbandonZone'>Abandon Challege<br>Zone</div>`;
+	if (s.quagmire) tooltipText += `<div class='windowDisplay windowAbandonZone'>Abandon Challenge<br>Zone</div>`;
 	if (s.voidMap) {
 		tooltipText += `<div class='windowDisplay windowDefaultVoidMap'>Max<br>Map Bonus</div>`;
 		if (game.permaBoneBonuses.boosts.owned > 0) tooltipText += `<div class='windowDisplay windowDefaultVoidMap'>Use Bone<br>Charge</div>`;
@@ -986,7 +921,7 @@ function settingsWindowSave(titleText, varPrefix, reopen) {
 	const elem = document.getElementById('tooltipDiv');
 	swapClass(document.getElementById('tooltipDiv').classList[0], 'tooltipExtraNone', elem);
 	cancelTooltip(true);
-	if (reopen) MAZLookalike('mapSettings', titleText);
+	if (reopen) importExportTooltip('mapSettings', titleText);
 
 	//Disable Void Map global variables when saving Void Map settings to ensure we aren't running voids at the wrong zone after updating.
 	if (voidMap) {
@@ -1166,7 +1101,9 @@ function mapSettingsHelpWindow(titleText) {
 		mazHelp += '<li><b>End Zone</b> - The upper bound zone to run voids maps on.</li>';
 		mazHelp += "<li><b>Dropdowns</b> - Will only run the line when one or more of the dropdown options aren't met OR you are at the <b>End Zone</b> input for that line. The information relating to each of the dropdowns can be found in the Auto Maps status tooltip.</li>";
 		mazHelp += '<li class="indent">If you have selected a <b>HD Ratio</b> and that type of <b>HD Ratio</b> is greater than the value input OR if you\'ve selected one of Hits Survived, Hits Survived Void it will check if the value is lower than it and skip if it is. Disabled just skips checking that input.<br></li>';
-		mazHelp += '<li><b>Portal After</b> - Will run Auto Portal immediately after this line has run.</b></li>';
+		mazHelp += '<li><b>Portal After</b> - Will run Auto Portal immediately after this line has run.';
+		if (!radonSetting) mazHelp += '<br>When enabled and farming for, or running Void Maps this will buy as many nurseries as you can afford based upon your spending percentage in the AT AutoStructure settings.</li>';
+		mazHelp += '</li>';
 	}
 
 	if (mapFarm) {
@@ -1281,6 +1218,7 @@ function mapSettingsHelpWindow(titleText) {
 		mazHelp += '<br>';
 		const heliumType = currSettingUniverse === 2 ? 'Radon' : 'Helium';
 		mazHelp += `You are able to have multiple lines of the same type. For example 8 Void, 12 Battle, 10 ${heliumType}, 8 Battle would end with 8 Golden Voids, 20 Golden Battle, and 10 Golden ${heliumType} upgrades. Requests to buy Golden Void will be skipped if it would put you above 72%.`;
+		mazHelp += `Will skip all ${heliumType} upgrades when running a C2.`;
 	}
 
 	return mazHelp;
@@ -1649,7 +1587,7 @@ function autoStructureDisplay(elem) {
 		"<p>Here you can choose which structures will be automatically purchased when AutoStructure is toggled on. Check a box to enable the automatic purchasing of that structure, the 'Perc:' box specifies the cost-to-resource % that the structure should be purchased below, and set the 'Up To:' box to the maximum number of that structure you'd like purchased <b>(0&nbsp;for&nbsp;no&nbsp;limit)</b>. For example, setting the 'Perc:' box to 10 and the 'Up To:' box to 50 for 'House' will cause a House to be automatically purchased whenever the costs of the next house are less than 10% of your Food, Metal, and Wood, as long as you have less than 50 houses.</p>";
 	const nursery = "<p><b>Nursery:</b> Acts the same as the other settings but also has a 'From' input which will cause nurseries to only be built from that zone onwards. Spire nursery settings within AT will ignore this start zone if needed for them to work. If 'Advanced Nurseries' is enabled and 'Up To' is set to 0 it will override buying max available and instead respect the input.</p>";
 	const warpstation = '<p><b>Warpstation:</b> Settings for this type of building can be found in the AutoTrimp settings building tab!</p>';
-	const safeGateway = "<p><b>Safe Gateway:</b> Will stop purchasing Gateways when your owned fragments are lower than the cost of the amount of maps you input in the 'Maps' field times by what a Perfect +10 LMC map would cost up to the zone specified in 'Till Z:', if that value is 0 it'll assume z999.</p>";
+	const safeGateway = "<p><b>Safe Gateway:</b> Will stop purchasing Gateways when your owned fragments are lower than the cost of the amount of maps you input in the 'Maps' field times by what a perfect LMC map of the level picked would cost up to the zone specified in 'Till Z:', if that value is 0 it'll assume z999.</p>";
 
 	tooltipText = "<div style='color: red; font-size: 1.1em; text-align: center;' id='autoJobsError'></div><p>Welcome to AT's Auto Structure Settings! <span id='autoTooltipHelpBtn' role='button' style='font-size: 0.6vw;' class='btn btn-md btn-info' onclick='toggleAutoTooltipHelp(); _verticalCenterTooltip(false, true);'>Help</span></p><div id='autoTooltipHelpDiv' style='display: none'>";
 	tooltipText += `${baseText}`;
@@ -1678,7 +1616,7 @@ function autoStructureTable(settingGroup, hze) {
 		if (item === 'Laboratory' && hze < 130) continue;
 		if (item === 'Antenna' && game.buildings[item].locked) continue;
 		if (!building.AP && item !== 'Antenna') continue;
-		if (count !== 0 && count % 2 === 0) tooltipText += '</tr><tr>';
+		if (count !== 0 && (count % 2 === 0 || (item === 'Nursery' && hze >= 230))) tooltipText += '</tr><tr>';
 		let setting = settingGroup[item];
 		let checkbox = buildNiceCheckbox('structConfig' + item, 'autoCheckbox', setting && setting.enabled);
 
@@ -1689,28 +1627,51 @@ function autoStructureTable(settingGroup, hze) {
 		tooltipText += '</div></td>';
 		count++;
 	}
-	tooltipText += '</tr><tr>';
 
-	//Nursery Start Zone setting after reaching Magma
 	if (game.global.universe === 1 && hze >= 230) {
 		tooltipText += "<td><div class='row'>";
-		tooltipText += "<div class='col-xs-3' style='width: 34%; padding-right: 5px'>" + '&nbsp;&nbsp;<span>' + 'Nursery (cont)' + '</span></div>';
-		tooltipText += "<div class='col-xs-5' style='width: 33%; text-align: right'>From: <input class='structConfigQuantity' id='nurseryFromZ" + "' type='number' value='" + (settingGroup.Nursery && settingGroup.Nursery.fromZ ? settingGroup.Nursery.fromZ : 0) + "' /></div>";
+		tooltipText += "<div class='col-xs-5' style='width: 44%; padding-right: 5px'>From Z: <input class='structConfigQuantity' id='nurseryFromZ" + "' type='number' value='" + (settingGroup.Nursery && settingGroup.Nursery.fromZ ? settingGroup.Nursery.fromZ : 0) + "' /></div>";
 	}
-	//Safe Gateway setting for u2
+
 	if (game.global.universe === 2) {
-		tooltipText += "<td><div class='row'><div class='col-xs-3' style='width: 34%; style='padding-right: 5px'>" + buildNiceCheckbox('structConfigSafeGateway', 'autoCheckbox', typeof settingGroup.SafeGateway === 'undefined' ? false : settingGroup.SafeGateway.enabled) + '&nbsp;&nbsp;<span>' + 'Safe Gateway' + '</span></div>';
-		tooltipText += "<div class='col-xs-5' style='width: 33%; text-align: right'>Maps: <input class='structConfigQuantity' id='structMapCountSafeGateway" + "' type='number' value='" + (settingGroup.SafeGateway && settingGroup.SafeGateway.mapCount ? settingGroup.SafeGateway.mapCount : 0) + "' /></div>";
-		tooltipText += "<div class='col-xs-5' style='width: 33%; padding-left: 5px; text-align: right'>Till Z: <input class='structConfigPercent' id='structMax' type='number' value='" + (settingGroup.SafeGateway && settingGroup.SafeGateway.zone ? settingGroup.SafeGateway.zone : 0) + "' /></div>";
+		const setting = settingGroup.SafeGateway;
+		let item = 'Safe Gateway';
+		let checkbox = buildNiceCheckbox('structConfigSafeGateway', 'autoCheckbox', typeof setting === 'undefined' ? false : setting.enabled);
+
+		tooltipText += '</tr><tr>';
+
+		tooltipText += "<td><div class='row'>";
+		tooltipText += "<div class='col-xs-3' style='width: 34%; padding-right: 5px'>" + checkbox + '&nbsp;&nbsp;<span>' + item + '</span></div>';
+		tooltipText += "<div class='col-xs-5' style='width: 33%; text-align: right'>Maps: <input class='structConfigPercent' id='structPercent" + "' type='number' value='" + (setting && setting.mapCount ? setting.mapCount : 0) + "' /></div>";
+		tooltipText += "<div class='col-xs-5' style='width: 33%; padding-left: 5px; text-align: right'>Till Z: <input class='structConfigQuantity' id='structMax' type='number' value='" + (setting && setting.zone ? setting.zone : 0) + "' /></div>";
+		tooltipText += '</div></td>';
+
+		tooltipText += "<td><div class='row'>";
+		tooltipText += "<div class='col-xs-3' style='width: 44%; padding-right: 5px'><span>Map Level:" + "&nbsp;</span><select class='structConfigPercent' id='safeGatewayMapLevel'><option value='0'>0</option>";
+
+		if (hze >= 50) {
+			for (let i = 1; i <= 10; i++) {
+				tooltipText += "<option value='" + i + "'" + (setting.mapLevel === i.toString() ? " selected='selected'" : '') + '>' + i + '</option>';
+			}
+		}
+
+		tooltipText += '</select></div>';
 		tooltipText += '</div></td>';
 	}
+
+	tooltipText += '</tr><tr>';
+
 	//Portal Settings
 	const values = ['Off', 'On'];
-	tooltipText += "<td><div class='row'><div class='col-xs-3' style='width: 34%; style=' padding-right: 5px'> Setting on Portal:" + '</span></div>';
-	tooltipText += "<div class='col-xs-5 style=' width: 33%; padding-left: 5px; text-align: right'><select style='width: 70%' id='autoJobSelfGather'><option value='0'>No change</option>";
+	tooltipText += "<td><div class='row'>";
+	tooltipText += "<div class='col-xs-3' style='width: 32.5%; padding-right: 5px'><span>Setting on Portal" + '</span></div>';
+	tooltipText += "<div class='col-xs-5' style='width: 33%; text-align: right'><select style='width: 100%' id='autoJobSelfGather'><option value='0'>No change</option>";
 	for (let x = 0; x < values.length; x++) {
 		tooltipText += '<option' + (settingGroup.portalOption && settingGroup.portalOption === values[x].toLowerCase() ? " selected='selected'" : '') + " value='" + values[x].toLowerCase() + "'>" + values[x] + '</option>';
 	}
+
+	tooltipText += '/></div>';
+	tooltipText += '</div></td>';
 
 	tooltipText += '</tr><tr>';
 	tooltipText += '</tr></tbody></table > ';
@@ -1733,15 +1694,17 @@ function autoStructureSave() {
 		};
 
 		if (game.global.universe === 2 && name === 'SafeGateway') {
-			let count = parseInt(quantboxes[x].value, 10);
+			let count = parseInt(percentboxes[x].value, 10);
 			if (count > 10000) count = 10000;
 			count = isNumberBad(count) ? 3 : count;
 			setting[name].mapCount = count;
 
-			let zone = parseInt(percentboxes[x].value, 10);
+			let zone = parseInt(quantboxes[x].value, 10);
 			if (zone > 999) zone = 999;
 			zone = isNumberBad(zone) ? 3 : zone;
 			setting[name].zone = zone;
+
+			setting[name].mapLevel = document.getElementById('safeGatewayMapLevel').value;
 
 			continue;
 		}
@@ -1897,9 +1860,9 @@ function autoJobsTable(settingGroup, ratioJobs, percentJobs) {
 	}
 
 	const portalOptions = ['AutoJobs Off', 'Auto Ratios', 'Manual Ratios'];
-	tooltipText += "<tr><td style='width: 40%'>";
-	tooltipText += "<div class='col-xs-6' style='padding-right: 3px; font-size: 1vw; '>Setting on Portal:</div>";
-	tooltipText += "<div class='col-xs-6 lowPad' style='text-align: right'><select style='width: 100%' id='autoJobPortal'><option value='0'>No change</option>";
+	tooltipText += "<tr><td style='width: 40%'><div class='row'>";
+	tooltipText += "<div class='col-xs-6' style='width: 50%; padding-right: 5px'><span>Setting on Portal" + '</span></div>';
+	tooltipText += "<div class='col-xs-6 lowPad' style='width: 45.25%; text-align: right'><select style='width: 100%' id='autoJobPortal'><option value='0'>No change</option>";
 
 	for (let x = 0; x < portalOptions.length; x++) {
 		tooltipText += '<option' + (settingGroup.portalOption && settingGroup.portalOption === portalOptions[x].toLowerCase() ? " selected='selected'" : '') + " value='" + portalOptions[x].toLowerCase() + "'>" + portalOptions[x] + '</option>';
@@ -2092,7 +2055,8 @@ function uniqueMapsSave() {
 //AT Messages
 function messageDisplay(elem) {
 	const msgs = getPageSetting('spamMessages');
-	const keys = ['general', 'upgrades', 'equipment', 'maps', 'map_Details', 'map_Destacking', 'map_Skip', 'other', 'buildings', 'jobs', 'zone', 'exotic', 'gather', 'stance', 'run_Stats', 'magmite', 'nature', 'portal'];
+	const keys = ['general', 'upgrades', 'equipment', 'maps', 'map_Details', 'map_Destacking', 'map_Skip', 'other', 'buildings', 'jobs', 'zone', 'golden_Upgrades', 'exotic', 'gather', 'stance', 'run_Stats', 'magmite', 'nature', 'portal'];
+
 	const settingGroup = keys.reduce((obj, key) => {
 		obj[key] = false;
 		return obj;
@@ -2100,15 +2064,20 @@ function messageDisplay(elem) {
 
 	let tooltipText = "<div id='messageConfig'>Here you can finely tune your message settings. Mouse over the name of a filter for more info.</div>";
 	tooltipText += "<div class='row'>";
+
 	for (let x = 0; x < 1; x++) {
-		tooltipText += "<div class='col-xs-4'></span><br/>";
+		tooltipText += "<div class='col-xs-6'></span><br/>";
+
 		for (let item in settingGroup) {
 			if (item === 'enabled') continue;
 			const realName = (item.charAt(0).toUpperCase() + item.substr(1)).replace(/_/g, ' ');
-			tooltipText += `<span class='messageConfigContainer'><span class='messageCheckboxHolder'>${buildNiceCheckbox(item, 'messageConfigCheckbox', msgs[item])}</span><span onmouseover='messageConfigHoverAT("${item}", event)' onmouseout='tooltip("hide")' class='messageNameHolderAT'> - ${realName}</span></span><br/>`;
+			if (typeof msgs[item] === 'undefined') msgs[item] = false;
+			tooltipText += `<span class='messageConfigContainer'><span class='messageCheckboxHolder'>${buildNiceCheckbox(item, 'messageConfigCheckbox', msgs && msgs[item])}</span><span onmouseover='messageConfigHoverAT("${item}", event)' onmouseout='tooltip("hide")' class='messageNameHolderAT'> - ${realName}</span></span><br/>`;
 		}
+
 		tooltipText += '</div>';
 	}
+
 	tooltipText += '</div>';
 
 	const ondisplay = () => _verticalCenterTooltip();
@@ -2139,6 +2108,7 @@ function messageConfigHoverAT(what, event) {
 		buildings: { title: 'Buildings', text: 'Log the buildings that AT purchases.' },
 		jobs: { title: 'Jobs', text: 'Log the jobs that AT purchases.' },
 		zone: { title: 'Zone', text: 'Log when you start a new zone.' },
+		golden_Upgrades: { title: 'Golden Upgrades', text: 'Log all the golden upgrades that AT purchases.' },
 		exotic: { title: 'Exotic', text: 'Log the amount of world exotics you start a zone with.' },
 		gather: { title: 'Gather', text: 'Log the action that AT tries to gather.' },
 		stance: { title: 'Stance', text: 'Logs when AT decides to change stance and what it changes to.' },
@@ -2375,4 +2345,145 @@ function c2RunnerSave() {
 
 	setPageSetting('c2RunnerSettings', setting, currSettingUniverse);
 	cancelTooltip();
+}
+
+//Hide Automation Buttons
+function hideAutomationDisplay(elem) {
+	const msgs = getPageSetting('displayHideAutoButtons');
+	const keys = ['fight', 'autoFight', 'trap', 'storage', 'structure', 'jobs', 'gold', 'upgrade', 'prestige', 'equip'];
+	const settingGroup = keys.reduce((obj, key) => {
+		obj[key] = false;
+		return obj;
+	}, {});
+
+	let tooltipText = "<div id='messageConfig'>Here you can finely tune ingame automation buttons  you'd prefer to hide. Mouse over the name of a filter for more info.</div>";
+	tooltipText += "<div class='row'>";
+	tooltipText += `<span class='messageConfigContainer' style='font-size: 1.3vw;'>&nbsp;&nbsp;Base Game Automation</span></span><br/>`;
+	tooltipText += "<div class='col-xs-6'></span>";
+
+	for (let item in settingGroup) {
+		if (item === 'enabled') continue;
+		const addAuto = item.includes('ight') ? '' : 'Auto ';
+		let realName = addAuto + (item.charAt(0).toUpperCase() + item.substr(1)).replace(/_/g, ' ');
+		if (realName === 'AutoFight') realName = 'Auto Fight';
+
+		tooltipText += `<span class='messageConfigContainer'><span class='messageCheckboxHolder'>${buildNiceCheckbox(item, 'messageConfigCheckbox', msgs[item])}</span><span onmouseover='hideAutomationConfigHover("${item}", event)' onmouseout='tooltip("hide")' class='messageNameHolderAT'> - ${realName}</span></span><br/>`;
+	}
+
+	tooltipText += `<span class='messageConfigContainer' style='font-size: 1.3vw;'>AutoTrimps Automation</span></span><br/>`;
+	const atKeys = ['structure', 'jobs', 'equip', 'maps', 'status', 'heHr'];
+	const atSettingGroup = atKeys.reduce((obj, key) => {
+		obj[key] = false;
+		return obj;
+	}, {});
+
+	for (let item in atSettingGroup) {
+		if (item === 'enabled') continue;
+		let realName = 'Auto ' + (item.charAt(0).toUpperCase() + item.substr(1)).replace(/_/g, ' ');
+		if (item === 'status') realName = 'Auto Maps Status';
+		if (item === 'heHr') realName = `${heliumOrRadon()} Per Hour Status`;
+
+		tooltipText += `<span class='messageConfigContainer'><span class='messageCheckboxHolder'>${buildNiceCheckbox('AT' + item, 'messageConfigCheckbox', msgs['AT' + item])}</span><span onmouseover='hideAutomationConfigHover("${'AT' + item}", event)' onmouseout='tooltip("hide")' class='messageNameHolderAT'> - ${realName}</span></span><br/>`;
+	}
+
+	const ondisplay = () => _verticalCenterTooltip();
+
+	elem.style.top = '25%';
+	elem.style.left = '35%';
+
+	const costText = `
+	<div class='maxCenter'>
+		<div class='btn btn-info' id='confirmTooltipBtn' onclick='cancelTooltip();hideAutomationSave();'>Confirm</div>
+		<div class='btn btn-danger' onclick='cancelTooltip()'>Cancel</div>
+	</div>
+	`;
+
+	return [elem, tooltipText, costText, ondisplay];
+}
+
+function hideAutomationConfigHover(what, event) {
+	const messageConfigMap = {
+		fight: { title: 'Fight', text: 'Hides the games Fight button.' },
+		autoFight: { title: 'Auto Fight', text: 'Hides the games AutoFight button.' },
+		trap: { title: 'Auto Traps', text: 'Hides the games AutoTraps button.' },
+		storage: { title: 'Auto Storage', text: 'Hides the games AutoStorage button.' },
+		structure: { title: 'Auto Structure', text: 'Hides the games AutoStructure button.' },
+		jobs: { title: 'Auto Jobs', text: 'Hides the games AutoJobs button.' },
+		jobs: { title: 'Auto Jobs', text: 'Hides the games AutoJobs button.' },
+		geneticistassist: { title: 'Geneticistassist', text: 'Hides the games Geneticistassist button.' },
+		upgrades: { title: 'Auto Upgrade', text: 'Hides the games AutoUpgrade button.' },
+		prestige: { title: 'Auto Prestige', text: 'Hides the games AutoPrestige button.' },
+		equip: { title: 'Auto Equip', text: 'Hides the games AutoEquip button.' },
+		ATstructure: { title: 'AutoTrimps Auto Structure', text: 'Hides the AutoTrimps AutoStructure button.' },
+		ATjobs: { title: 'AutoTrimps Auto Jobs', text: 'Hides the AutoTrimps AutoJobs button.' },
+		ATequip: { title: 'AutoTrimps Auto Equip', text: 'Hides the AutoTrimps AutoEquip button.' },
+		ATmaps: { title: 'AutoTrimps Auto Maps', text: 'Hides the AutoTrimps AutoMaps button.' },
+		ATstatus: { title: 'AutoTrimps Auto Maps Status', text: 'Hides the AutoTrimps Map Status message.' },
+		ATheHr: { title: `AutoTrimps ${heliumOrRadon()} Per Hour Status`, text: `Hides the AutoTrimps ${heliumOrRadon()} Per Hour Status message.` }
+	};
+
+	const config = messageConfigMap[what];
+	if (!config) return;
+
+	document.getElementById('messageConfig').innerHTML = `<b>${config.title}</b><br>${config.text}`;
+	tooltip(config.title, 'customText', event, config.text);
+}
+
+function hideAutomationSave() {
+	const setting = getPageSetting('displayHideAutoButtons');
+	const checkboxes = Array.from(document.getElementsByClassName('messageConfigCheckbox'));
+
+	checkboxes.forEach((checkbox) => {
+		setting[checkbox.id] = checkbox.dataset.checked === 'true';
+	});
+
+	setPageSetting('displayHideAutoButtons', setting);
+	saveSettings();
+	cancelTooltip();
+
+	hideAutomationButtons();
+}
+
+function hideAutomationButtons() {
+	const setting = getPageSetting('displayHideAutoButtons');
+
+	const automationUnlocked = {
+		fight: game.upgrades.Battle.done,
+		trap: game.upgrades.Trapstorm.done,
+		storage: game.global.autoStorageAvailable,
+		structure: bwRewardUnlocked('AutoStructure'),
+		jobs: bwRewardUnlocked('AutoJobs'),
+		geneticistassist: bwRewardUnlocked('Geneticistassist'),
+		gold: game.stats.goldenUpgrades.valueTotal + game.stats.goldenUpgrades.value >= 77,
+		upgrade: game.global.autoUpgradesAvailable,
+		prestige: game.global.sLevel >= 4,
+		equip: game.global.autoEquipUnlocked,
+		ATstructure: true,
+		ATjobs: true,
+		ATequip: true,
+		ATmaps: true,
+		ATstatus: true,
+		ATheHr: true
+	};
+
+	for (let item in setting) {
+		if (!automationUnlocked[item]) continue;
+
+		if (item === 'fight') {
+			_setFightButtons(setting);
+			continue;
+		}
+
+		const itemName = `${item.charAt(0).toUpperCase() + item.substr(1)}${item === 'gold' ? 'en' : ''}`;
+		let elemName = `auto${itemName}Btn`;
+
+		if (item === 'ATmaps') elemName = 'autoMapBtn';
+		else if (item === 'ATstatus') elemName = 'autoMapStatus';
+		else if (item === 'ATheHr') elemName = 'heHrStatus';
+		else if (item.includes('AT')) elemName = `auto${item.charAt(2).toUpperCase() + itemName.substr(3)}Parent`;
+
+		const elem = document.getElementById(elemName);
+		const elemVisible = setting[item] ? 'hidden' : '';
+		if (elem && elem.style.visibility !== elemVisible) elem.style.visibility = elemVisible;
+	}
 }

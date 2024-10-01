@@ -102,7 +102,7 @@ function _calcCurrentStatsDebug() {
 	const equality = game.global.universe === 2 ? Math.pow(game.portal.Equality.getModifier(), game.portal.Equality.disabledStackCount) : 1;
 	const enemyMin = calcEnemyAttackCore(worldType, zone, cell, name, true, false, 0) * difficulty;
 	const enemyMax = calcEnemyAttackCore(worldType, zone, cell, name, false, false, 0) * difficulty;
-	const mapLevel = mapping && game.talents.bionic2.purchased ? zone - game.global.world : 0;
+	const mapLevel = mapping && masteryPurchased('bionic2') ? zone - game.global.world : 0;
 	const equalityStackCount = game.global.universe === 2 ? game.portal.Equality.disabledStackCount : false;
 	const isUniverse1 = game.global.universe !== 2;
 
@@ -145,6 +145,15 @@ function timeForFormatting(number) {
 	return Math.floor((getGameTime() - number) / 1000);
 }
 
+function _getPortalAfterVoidSetting() {
+	if (!MODULES.mapFunctions.afterVoids) return false;
+
+	const portalSetting = challengeActive('Daily') ? getPageSetting('dailyPortal') : getPageSetting('portal');
+	if (portalSetting === 2 && getZoneEmpowerment(game.global.world) !== 'Poison') return false;
+
+	return true;
+}
+
 function _getPrimaryResourceInfo() {
 	return currSettingUniverse === 2 ? { name: 'Radon', abv: 'Rn' } : { name: 'Helium', abv: 'He' };
 }
@@ -165,7 +174,8 @@ function prestigesToGet(targetZone = game.global.world, targetPrestige = 'Gambes
 	let mapsToRun = 0;
 	let prestigeToFarmFor = 0;
 
-	const hasSciFour = (game.global.universe === 1 && game.global.sLevel >= 4) || (game.global.universe === 2 && game.buildings.Microchip.owned >= 4);
+	const runningMapo = challengeActive('Mapology');
+	const hasSciFour = !runningMapo && ((game.global.universe === 1 && game.global.sLevel >= 4) || (game.global.universe === 2 && game.buildings.Microchip.owned >= 4));
 	const prestigeInterval = !hasSciFour || challengeActive('Mapology') ? 5 : 10;
 
 	for (const p of prestigeList) {
@@ -249,7 +259,7 @@ function _checkFastEnemyU2(enemy) {
 	if (challengeActive('Trappapalooza')) return true;
 	if (challengeActive('Berserk') && game.challenges.Berserk.weakened !== 20) return true;
 	if (challengeActive('Glass')) return true;
-	if (challengeActive('Revenge')) return true;
+	if (challengeActive('Revenge') && game.challenges.Revenge.stacks === 19) return true;
 	if (challengeActive('Smithless') && enemy.ubersmith) return true;
 	if (challengeActive('Desolation') && mapping) {
 		// Exotic mapimps in deso are bugged and slow
@@ -296,9 +306,13 @@ function checkFastEnemy(enemy = getCurrentEnemy()) {
 	return false;
 }
 
+/* Subtracts time paused from game time value */
 function getGameTime() {
 	const { start: startTime, time: globalTime } = game.global;
-	if (game.options.menu.pauseGame.enabled) return startTime + (game.options.menu.pauseGame.timeAtPause - startTime) + globalTime;
+
+	if (game.options.menu.pauseGame.enabled) {
+		return startTime + (game.options.menu.pauseGame.timeAtPause - startTime) + globalTime;
+	}
 
 	return startTime + globalTime;
 }

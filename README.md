@@ -42,7 +42,7 @@ Configure settings. Will NOT work as intended with default settings.
 
 Step 1:
 Go to this link to open the mods.js file: <a href="https://github.com/SadAugust/AutoTrimps/raw/main/userFiles/mods.js">mods.js</a>  
-Then, right click the Raw button, hit Save link as, and save the mods.js file somewhere to your computer where you can find it, like desktop.  
+Then, right click, hit "Save as...", and save the mods.js file somewhere to your computer where you can find it, like desktop.  
 ![Download mods.js](https://i.imgur.com/opuO6yd.png)
 
 Step 2:
@@ -120,3 +120,7 @@ Restart the game, or if the game is already running, hit F5 to refresh.
 -   Note for Farm Calculator (zfarm)
 
 This works in both universes and shows you the optimal stance/equality level to use for the map shown. The information for it can be found at the bottom of the Trimps breeding/trapping section as can be seen in the image below. ![Farm Calc Position](https://i.imgur.com/siZH8Dh.png)
+
+## Donate
+
+If you'd like to donate to AutoTrimps development, you can now do so with PayPal <a href="https://www.paypal.com/donate/?hosted_button_id=QRQLBVYE54XLQ">here.</a>

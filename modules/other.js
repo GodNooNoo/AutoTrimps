@@ -12,7 +12,7 @@ function isCorruptionActive(targetZone) {
 	if (game.global.universe === 2) return 9999;
 	if (challengeActive('Eradicated')) return 1;
 	if (challengeActive('Corrupted')) return 60;
-	return targetZone >= (game.talents.headstart.purchased && !game.global.runningChallengeSquared ? (game.talents.headstart2.purchased ? (game.talents.headstart3.purchased ? 151 : 166) : 176) : 181);
+	return targetZone >= (masteryPurchased('headstart') && !game.global.runningChallengeSquared ? (masteryPurchased('headstart2') ? (masteryPurchased('headstart3') ? 151 : 166) : 176) : 181);
 }
 
 function isDoingSpire() {
@@ -86,6 +86,7 @@ function fluffyEvolution() {
 
 	if (shouldRespecPerks) {
 		viewPortalUpgrades();
+		if (game.global.canRespecPerks) respecPerks();
 		fireAllWorkers();
 		runPerky();
 		activateClicked();
@@ -355,9 +356,9 @@ function checkLiqZoneCount(universe) {
 	}
 
 	let spireCount = game.global.spiresCompleted;
-	if (game.talents.liquification.purchased) spireCount++;
-	if (game.talents.liquification2.purchased) spireCount++;
-	if (game.talents.liquification3.purchased) spireCount += 2;
+	if (masteryPurchased('liquification')) spireCount++;
+	if (masteryPurchased('liquification2')) spireCount++;
+	if (masteryPurchased('liquification3')) spireCount += 2;
 	spireCount += Fluffy.isRewardActive('liquid') * 0.5;
 	const liquidAmount = spireCount / 20;
 
@@ -423,9 +424,10 @@ function _timeWarpAutoSaveSetting() {
 	if (game.options.menu.autoSave.enabled) toggleSetting('autoSave');
 }
 
-function _timeWarpUpdateUIDisplay() {
+function _timeWarpUpdateUIDisplay(force = false) {
 	if (!usingRealTimeOffline || !getPageSetting('timeWarpDisplay')) return;
 
+	const offlineMode = usingRealTimeOffline;
 	usingRealTimeOffline = false;
 	const enemy = getCurrentEnemy();
 	updateGoodBar();
@@ -469,7 +471,26 @@ function _timeWarpUpdateUIDisplay() {
 	displayMostEfficientBuilding(true);
 	displayMostEfficientEquipment(true);
 	displayShieldGymEfficiency(true);
-	usingRealTimeOffline = true;
+
+	if (mutations.Magma.active()) updateGeneratorInfo();
+	updateTurkimpTime(true);
+
+	if (challengeActive('Balance') || challengeActive('Unbalance')) updateBalanceStacks();
+	if (challengeActive('Electricity') || challengeActive('Mapocalypse')) updateElectricityStacks();
+	if (challengeActive('Life')) updateLivingStacks();
+	if (challengeActive('Nom')) updateNomStacks();
+	if (challengeActive('Toxicity')) updateToxicityStacks();
+	if (challengeActive('Lead')) manageLeadStacks();
+
+	if (game.global.antiStacks > 0) updateAntiStacks();
+	updateTitimp();
+	if (getHeirloomBonus('Shield', 'gammaBurst') > 0) updateGammaStacks();
+	setEmpowerTab();
+	handlePoisonDebuff();
+	handleIceDebuff();
+	handleWindDebuff();
+
+	usingRealTimeOffline = offlineMode;
 }
 
 function _timeWarpUpdateEquipment() {
@@ -1147,6 +1168,43 @@ function updateATVersion() {
 			} else {
 				setupAddonUser(true);
 			}
+		}
+
+		if (versionNumber < '6.5.78') {
+			const tempSettings = JSON.parse(localStorage.getItem('atSettings'));
+
+			if (typeof tempSettings['buildingSettingsArray'] !== 'undefined' && typeof tempSettings['buildingSettingsArray'].valueU2 !== 'undefined' && typeof tempSettings['buildingSettingsArray'].valueU2.SafeGateway !== 'undefined') {
+				autoTrimpSettings.buildingSettingsArray.valueU2.SafeGateway.mapLevel = 10;
+			}
+
+			saveSettings();
+		}
+
+		if (versionNumber < '6.5.85') {
+			const tempSettings = JSON.parse(localStorage.getItem('atSettings'));
+
+			if (typeof tempSettings['displayHideFightButtons'] !== 'undefined' && typeof tempSettings['displayHideFightButtons'].enabled !== 'undefined') {
+				autoTrimpSettings.displayHideAutoButtons.value.fight = tempSettings.displayHideFightButtons.enabled;
+				autoTrimpSettings.displayHideAutoButtons.value.autoFight = tempSettings.displayHideFightButtons.enabled;
+			}
+
+			saveSettings();
+			hideAutomationButtons();
+		}
+
+		if (versionNumber < '6.5.86') {
+			const tempSettings = JSON.parse(localStorage.getItem('atSettings'));
+
+			if (typeof tempSettings['displayHideAutoButtons'] !== 'undefined' && typeof tempSettings['displayHideAutoButtons'].value.fight !== 'undefined') {
+				autoTrimpSettings.displayHideAutoButtons.value.autoFight = tempSettings.displayHideAutoButtons.value.fight;
+			}
+
+			if (typeof tempSettings['displayHeHr'] !== 'undefined' && typeof tempSettings['displayHeHr'].enabled !== 'undefined') {
+				autoTrimpSettings.displayHideAutoButtons.value.ATheHr = !tempSettings.displayHeHr.enabled;
+			}
+
+			saveSettings();
+			hideAutomationButtons();
 		}
 	}
 

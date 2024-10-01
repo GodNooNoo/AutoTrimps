@@ -1,5 +1,18 @@
 if (typeof MODULES === 'undefined') MODULES = {};
 
+if (typeof elementExists !== 'function') {
+	function elementExists(element) {
+		return document.getElementById(element).style.display !== 'none';
+	}
+}
+
+if (typeof elementVisible !== 'function') {
+	function elementVisible(element) {
+		let visible = document.getElementById(element).style.visibility !== 'hidden';
+		return elementExists(element) && visible;
+	}
+}
+
 if (typeof $$ !== 'function') {
 	$$ = function (a) {
 		return document.querySelector(a);
@@ -20,6 +33,11 @@ if (typeof $$ !== 'function') {
 
 		element.value = value;
 	}
+}
+
+function masteryPurchased(name) {
+	if (!game.talents[name]) throw `unknown mastery: ${name}`;
+	return game.talents[name].purchased;
 }
 
 // Lists name of all mods and their step amounts, soft caps, and hard caps.
@@ -643,12 +661,12 @@ class Heirloom {
 			const criticality = game.global.universe === 2 ? game.portal.Criticality.radLevel : 0;
 			let critChance = relentlessness * 5;
 			let megaCritMult = 5;
-			if (game.talents.crit.purchased) critChance += this.getModValue('critChance') * 1.5;
+			if (masteryPurchased('crit')) critChance += this.getModValue('critChance') * 1.5;
 			else critChance += this.getModValue('critChance');
 			if (this.fluffyRewards.critChance) critChance += 50 * this.fluffyRewards.critChance;
 			if (critChance === 0) return 1;
 			if (this.fluffyRewards.megaCrit) megaCritMult += 2;
-			if (game.talents.crit.purchased) megaCritMult += 1;
+			if (masteryPurchased('crit')) megaCritMult += 1;
 			const megaCrits = Math.floor(critChance / 100);
 			critChance = Math.min(critChance - megaCrits * 100, 100) / 100;
 			const critDamage = value + 230 * Math.min(relentlessness, 1) + 30 * Math.max(Math.min(relentlessness, 10) - 1, 0) + criticality * 10;
@@ -660,13 +678,14 @@ class Heirloom {
 		if (type === 'critChance') {
 			const relentlessness = game.global.universe === 2 ? 0 : game.portal.Relentlessness.level;
 			const criticality = game.global.universe === 2 ? game.portal.Criticality.radLevel : 0;
+			const critMastery = masteryPurchased('crit');
 			let critChanceBefore = relentlessness * 5;
 			let critChanceAfter = relentlessness * 5;
 			let critDamage = 230 * Math.min(relentlessness, 1) + 30 * Math.max(Math.min(relentlessness, 10) - 1, 0) + criticality * 10;
 			let megaCritMult = 5;
-			if (game.talents.crit.purchased) critChanceBefore += value * 1.5;
+			if (critMastery) critChanceBefore += value * 1.5;
 			else critChanceBefore += value;
-			if (game.talents.crit.purchased) critChanceAfter += value * 1.5;
+			if (critMastery) critChanceAfter += value * 1.5;
 			else critChanceAfter += value;
 			if (isNumeric(this.getModValue('critDamage'))) {
 				critDamage += this.getModValue('critDamage');
@@ -678,12 +697,12 @@ class Heirloom {
 			if (this.fluffyRewards.megaCrit) {
 				megaCritMult += 2;
 			}
-			if (game.talents.crit.purchased) {
+			if (critMastery) {
 				megaCritMult += 1;
 			}
 			const megaCritsBefore = Math.floor(critChanceBefore / 100);
-			const megaCritsAfter = Math.floor((critChanceBefore + (game.talents.crit.purchased ? stepAmount * 1.5 : stepAmount)) / 100);
-			critChanceAfter = Math.min(critChanceBefore + (game.talents.crit.purchased ? stepAmount * 1.5 : stepAmount) - megaCritsAfter * 100, 100) / 100;
+			const megaCritsAfter = Math.floor((critChanceBefore + (critMastery ? stepAmount * 1.5 : stepAmount)) / 100);
+			critChanceAfter = Math.min(critChanceBefore + (critMastery ? stepAmount * 1.5 : stepAmount) - megaCritsAfter * 100, 100) / 100;
 			critChanceBefore = Math.min(critChanceBefore - megaCritsBefore * 100, 100) / 100;
 			const critDmgNormalizedBefore = this.normalizedCrit(critChanceBefore, critDamage, megaCritsBefore, megaCritMult);
 			const critDmgNormalizedAfter = this.normalizedCrit(critChanceAfter, critDamage, megaCritsAfter, megaCritMult);
@@ -800,11 +819,11 @@ class Heirloom {
 		const criticality = game.global.universe === 2 ? game.portal.Criticality.radLevel : 0;
 		let critChance = relentlessness * 5;
 		let megaCritMult = 5;
-		if (game.talents.crit.purchased) critChance += this.getModValue('critChance') * 1.5;
+		if (masteryPurchased('crit')) critChance += this.getModValue('critChance') * 1.5;
 		else critChance += this.getModValue('critChance');
 		if (this.fluffyRewards.critChance) critChance += 50 * this.fluffyRewards.critChance;
 		if (this.fluffyRewards.megaCrit) megaCritMult += 2;
-		if (game.talents.crit.purchased) megaCritMult += 1;
+		if (masteryPurchased('crit')) megaCritMult += 1;
 		const megaCrits = Math.floor(critChance / 100);
 		critChance = Math.min(critChance - megaCrits * 100, 100) / 100;
 		const critDamage = this.getModValue('critDamage') + 230 * Math.min(relentlessness, 1) + 30 * Math.max(Math.min(relentlessness, 10) - 1, 0) + criticality * 10;
@@ -826,10 +845,10 @@ class Heirloom {
 		const relentlessness = game.global.universe === 2 ? 0 : game.portal.Relentlessness.level;
 		let critChance = relentlessness * 5;
 		if (this.fluffyRewards.critChance) critChance += 50 * this.fluffyRewards.critChance;
-		const megaCrits = Math.floor((critChance + game.talents.crit.purchased ? heirloom.getModValue('critChance') * 1.5 : heirloom.getModValue('critChance')) / 100);
+		const megaCrits = Math.floor((critChance + masteryPurchased('crit') ? heirloom.getModValue('critChance') * 1.5 : heirloom.getModValue('critChance')) / 100);
 
 		while (true) {
-			while (Math.floor((critChance + game.talents.crit.purchased ? heirloom.getModValue('critChance') * 1.5 : heirloom.getModValue('critChance')) / 100) === megaCrits) {
+			while (Math.floor((critChance + masteryPurchased('crit') ? heirloom.getModValue('critChance') * 1.5 : heirloom.getModValue('critChance')) / 100) === megaCrits) {
 				cost = heirloom.getModCost('critChance');
 				index = heirloom.mods.indexOf(heirloom.mods.filter((mod) => mod[0] === 'critChance')[0]);
 				if (currency >= cost) {
@@ -869,7 +888,7 @@ class Heirloom {
 		heirloom.paid = paid;
 		heirloom.next = { name, cost: nextCost };
 		heirloom.purchases = purchases;
-		heirloom.successful = Math.floor((critChance + game.talents.crit.purchased ? heirloom.getModValue('critChance') * 1.5 : heirloom.getModValue('critChance')) / 100) > megaCrits;
+		heirloom.successful = Math.floor((critChance + masteryPurchased('crit') ? heirloom.getModValue('critChance') * 1.5 : heirloom.getModValue('critChance')) / 100) > megaCrits;
 		return heirloom;
 	}
 
@@ -1116,29 +1135,33 @@ function setElemDisplay(id, value, isParent = false) {
 }
 
 // On selecting an heirloom load.
-var originalSelectHeirloom = selectHeirloom;
-selectHeirloom = function (...args) {
-	originalSelectHeirloom(...args);
-	if (!heirloomsShown) return;
+if (typeof originalSelectHeirloom !== 'function') {
+	var originalSelectHeirloom = selectHeirloom;
+	selectHeirloom = function (...args) {
+		originalSelectHeirloom(...args);
+		if (!heirloomsShown) return;
 
-	try {
-		calculate();
-		loadHeirloomSettings();
-	} catch (e) {
-		console.log('Heirloom issue:', e, 'other');
-	}
-};
+		try {
+			calculate();
+			loadHeirloomSettings();
+		} catch (e) {
+			console.log('Heirloom issue:', e, 'other');
+		}
+	};
+}
 
 // On selecting an heirloom mod load.
-var originalselectMod = selectMod;
-selectMod = function () {
-	originalselectMod(...arguments);
-	try {
-		calculate();
-	} catch (e) {
-		console.log('Heirloom issue: ' + e, 'other');
-	}
-};
+if (typeof originalselectMod !== 'function') {
+	var originalselectMod = selectMod;
+	selectMod = function () {
+		originalselectMod(...arguments);
+		try {
+			calculate();
+		} catch (e) {
+			console.log('Heirloom issue: ' + e, 'other');
+		}
+	};
+}
 
 function autoUpgradeHeirlooms() {
 	if (!getPageSetting('autoHeirlooms')) return;
@@ -1163,15 +1186,17 @@ function autoUpgradeHeirlooms() {
 }
 
 //When unselecting any heirlooms hide ratios.
-var originalpopulateHeirloomWindow = populateHeirloomWindow;
-populateHeirloomWindow = function () {
-	originalpopulateHeirloomWindow(...arguments);
-	try {
-		if (elementExists('heirloomRatios')) document.getElementById('heirloomRatios').style.display = 'none';
-	} catch (e) {
-		console.log('Heirloom issue: ' + e, 'other');
-	}
-};
+if (typeof originalpopulateHeirloomWindow !== 'function') {
+	var originalpopulateHeirloomWindow = populateHeirloomWindow;
+	populateHeirloomWindow = function () {
+		originalpopulateHeirloomWindow(...arguments);
+		try {
+			if (elementExists('heirloomRatios')) document.getElementById('heirloomRatios').style.display = 'none';
+		} catch (e) {
+			console.log('Heirloom issue: ' + e, 'other');
+		}
+	};
+}
 
 function runHeirlooms() {
 	const heirlooms = calculate(true);
@@ -1939,3 +1964,9 @@ function lightColMult(cell) {
 }
 
 setupHeirloomUI();
+
+/* If using standalone version then inform user it has loaded. */
+if (typeof autoTrimpSettings === 'undefined' || (typeof autoTrimpSettings !== 'undefined' && typeof autoTrimpSettings.ATversion !== 'undefined' && !autoTrimpSettings.ATversion.includes('SadAugust'))) {
+	console.log('The heirloom calculator mod has finished loading.');
+	message('The heirloom calculator mod has finished loading.', 'Loot');
+}

@@ -7,7 +7,7 @@ MODULES.maps = {
 	mapRepeats: 0,
 	mapRepeatsSmithy: [0, 0, 0],
 	mapTimer: 0,
-	lastMapWeWereIn: { id: 0 },
+	lastMapWeWereIn: getCurrentMapObject() || { id: 0 },
 	fragmentCost: Infinity
 };
 
@@ -43,6 +43,7 @@ function autoMapsStatus(get = false) {
 	const lifetime = (resourceOwned / (resourceEarned - resourceOwned)) * 100;
 
 	if (get) {
+		status = status.replace(/<br>/g, '\n').replace(/&nbsp;/g, ' ');
 		return [status, getPercent, lifetime];
 	}
 
@@ -67,7 +68,7 @@ function autoMapsStatus(get = false) {
 		}
 
 		const heHrElem = document.getElementById('heHrStatus');
-		if (heHrElem !== null && getPageSetting('displayHeHr')) {
+		if (heHrElem !== null && getPageSetting('displayHideAutoButtons').ATheHr) {
 			const heHrStatus = `${resourceShortened}/hr: ${getPercent > 0 ? getPercent.toFixed(3) : 0}%<br>&nbsp;&nbsp;&nbsp;${resourceShortened}: ${lifetime > 0 ? lifetime.toFixed(3) : 0}%`;
 			if (heHrElem.innerHTML !== heHrStatus) heHrElem.innerHTML = heHrStatus;
 			heHrElem.setAttribute('onmouseover', makeResourceTooltip(true));
@@ -137,8 +138,8 @@ function shouldAbandon(zoneCheck = true) {
 	return false;
 }
 
-function _noMappingChallenges(ignoreChallenge) {
-	if (noBreedChallenge()) return true;
+function _noMappingChallenges(ignoreChallenge, mapping = false) {
+	if (noBreedChallenge(mapping)) return true;
 	if (!ignoreChallenge && challengeActive('Mapology')) return true;
 	if (challengeActive('Exterminate')) return true;
 }
@@ -149,9 +150,10 @@ function decaySkipMaps() {
 
 	const challenge = game.challenges[challengeName];
 	const currentStacks = challenge ? challenge.stacks : 0;
-	const stacksToPush = getPageSetting('decayStacksToPush');
+	const maxStacks = challengeName === 'Melt' ? 500 : 999;
+	const stacksToPush = Math.min(getPageSetting('decayStacksToPush'), maxStacks);
 
-	return stacksToPush > 0 && currentStacks > stacksToPush;
+	return stacksToPush > 0 && currentStacks >= stacksToPush;
 }
 
 function _leadDisableMapping() {
@@ -172,7 +174,7 @@ function _berserkDisableMapping() {
 }
 
 function autoMaps() {
-	if (!getPageSetting('autoMaps') || !game.global.mapsUnlocked) return;
+	if (!game.global.mapsUnlocked || !getPageSetting('autoMaps')) return;
 
 	if (_checkSitInMaps()) return;
 
@@ -196,26 +198,27 @@ function autoMaps() {
 		return;
 	}
 
-	if (_vanillaMAZ()) return;
+	const mapObj = getCurrentMapObject();
+	if (_vanillaMAZ(mapObj)) return;
 
 	_autoMapsDefaults();
 
-	const mapObj = _checkOwnedMaps();
+	const mapsOwned = _checkOwnedMaps();
 
-	_searchForUniqueMaps(mapObj.uniqueMapsOwned, mapObj.runUnique);
+	_searchForUniqueMaps(mapsOwned.uniqueMapsOwned, mapsOwned.runUnique);
 
-	mapObj.selectedMap = _setSelectedMap(mapObj.selectedMap, mapObj.voidMap, mapObj.optimalMap);
+	mapsOwned.selectedMap = _setSelectedMap(mapsOwned.selectedMap, mapsOwned.voidMap, mapsOwned.optimalMap);
 
-	if (game.global.mapsActive) _setMapRepeat();
+	if (game.global.mapsActive) _setMapRepeat(mapObj);
 
-	if (!game.global.preMapsActive && !game.global.mapsActive && mapObj.selectedMap !== 'world') {
+	if (!game.global.preMapsActive && !game.global.mapsActive && mapsOwned.selectedMap !== 'world') {
 		if (!game.global.switchToMaps && shouldAbandon()) mapsClicked();
 		if (game.global.switchToMaps) mapsClicked();
 	}
 
-	if (game.global.preMapsActive) _autoMapsCreate(mapObj);
+	if (game.global.preMapsActive) _autoMapsCreate(mapsOwned);
 
-	_slowScumCheck();
+	_slowScumCheck(mapObj);
 }
 
 function prettifyMap(map) {
@@ -245,7 +248,7 @@ function _fragmentCheck(highestMap, runUnique) {
 	const mapSpecialMsg = mapSpecial === '0' ? 'no bonus' : mapSpecial;
 	debug(`Can't afford the designed map (level ${mapLevel} ${mapSpecialMsg})`, 'maps', 'th-large');
 	//Runs fragment farming if Explorers are unlocked and can afford a max loot+size sliders map
-	if (!game.jobs.Explorer.locked && mapCost(game.talents.mapLoot.purchased ? -1 : 0, getAvailableSpecials('fa'), 'Depths', [9, 9, 0], false) <= game.resources.fragments.owned) {
+	if (!game.jobs.Explorer.locked && mapCost(masteryPurchased('mapLoot') ? -1 : 0, getAvailableSpecials('fa'), 'Depths', [9, 9, 0], false) <= game.resources.fragments.owned) {
 		fragmentFarm();
 	} //Disable mapping if we don't have a map and can't afford the one that we want to make.
 	else if (highestMap === null) {
@@ -260,7 +263,7 @@ function _fragmentCheck(highestMap, runUnique) {
 	}
 }
 
-function _vanillaMAZ() {
+function _vanillaMAZ(mapObj = getCurrentMapObject()) {
 	if (!game.options.menu.mapAtZone.enabled || !game.global.canMapAtZone) return false;
 
 	const nextCell = game.global.lastClearedCell + 2;
@@ -318,14 +321,12 @@ function _lifeMapping() {
 }
 
 function _autoMapsDefaults() {
-	while ([1, 2, 3].includes(game.options.menu.repeatUntil.enabled) && !game.global.mapsActive && !game.global.preMapsActive) toggleSetting('repeatUntil');
-	if (game.options.menu.exitTo.enabled) toggleSetting('exitTo');
-	if (game.options.menu.repeatVoids.enabled) toggleSetting('repeatVoids');
-
-	//Reset to defaults when on world grid
 	if (!game.global.mapsActive && !game.global.preMapsActive) {
 		game.global.mapRunCounter = 0;
 		MODULES.maps.mapTimer = 0;
+	} else {
+		if (game.options.menu.exitTo.enabled) toggleSetting('exitTo');
+		if (mapSettings.mapName === 'Void Maps' && game.options.menu.repeatVoids.enabled) toggleSetting('repeatVoids');
 	}
 }
 
@@ -342,7 +343,7 @@ function _checkOwnedMaps() {
 	};
 
 	const runUniques = getPageSetting('autoMaps') === 1 && !_insanityDisableUniqueMaps();
-	const perfSize = game.talents.mapLoot2.purchased ? 20 : 25;
+	const perfSize = masteryPurchased('mapLoot2') ? 20 : 25;
 	const perfMapLoot = game.global.farmlandsUnlocked && game.singleRunBonuses.goldMaps.owned ? 3.6 : game.global.decayDone && game.singleRunBonuses.goldMaps.owned ? 2.85 : game.global.farmlandsUnlocked ? 2.6 : game.global.decayDone ? 1.85 : 1.6;
 	const mapBiome = mapSettings.biome !== undefined && mapSettings.biome !== 'Any' ? mapSettings.biome : getBiome();
 
@@ -388,7 +389,25 @@ function _searchForUniqueMaps(mapsOwned, runUnique = true) {
 		.filter((mapName) => MODULES.mapFunctions.uniqueMaps[mapName].mapUnlock)
 		.filter((mapName) => MODULES.mapFunctions.uniqueMaps[mapName].zone <= game.global.world + (trimpStats.plusLevels ? 10 : 0));
 
-	//Loop through unique map settings and obtain any unique maps that are to be run but aren't currently owned.
+	let challengeMap = 'none';
+	if (challengeActive('Scientist')) challengeMap = 'The Block';
+	/* else if (challengeActive('Electricity') || challengeActive('Mapocalypse')) challengeMap = 'The Prison'; */
+
+	if (challengeMap !== 'none' && !mapsOwned.includes(challengeMap) && !uniqueMapsToGet.includes(challengeMap)) {
+		const mapDetails = MODULES.mapFunctions.uniqueMaps[challengeMap];
+
+		if (game.global.world >= mapDetails.zone) {
+			mapDetails.name = challengeMap;
+			mapDetails.location = 'map';
+			mapDetails.size = mapDetails.name === 'The Black Bog' ? 150 : 100;
+			mapDetails.level = mapDetails.zone;
+
+			const canFinishChallenge = enoughHealth(mapDetails);
+			if (canFinishChallenge) uniqueMapsToGet.push(challengeMap);
+		}
+	}
+
+	/* Loop through unique map settings and obtain any unique maps that are to be run but aren't currently owned. */
 	if (!runUnique && uniqueMapsToGet.length > 0) mapSettings = _obtainUniqueMap(uniqueMapsToGet.sort((a, b) => MODULES.mapFunctions.uniqueMaps[b].zone - MODULES.mapFunctions.uniqueMaps[a].zone)[0]);
 }
 
@@ -408,12 +427,9 @@ function _setSelectedMap(selectedMap, voidMap, optimalMap) {
 	return selectedMap;
 }
 
-function _setMapRepeat() {
-	const mapObj = getCurrentMapObject();
-
+function _setMapRepeat(mapObj = getCurrentMapObject()) {
 	if ((!mapObj.noRecycle && mapSettings.shouldRun) || mapSettings.mapName === 'Bionic Raiding' || (mapSettings.mapName === 'Quagmire Farm' && mapObj.name === 'The Black Bog')) {
 		if (!game.global.repeatMap) repeatClicked();
-
 		let repeatSetting = 0; /* Repeat Forever */
 		if (mapSettings.shouldRun && ((mapSettings.mapName === 'Prestige Raiding' && !mapSettings.prestigeFragMapBought) || mapSettings.mapName === 'Bionic Raiding')) {
 			repeatSetting = 2; /* Repeat for Items */
@@ -427,7 +443,7 @@ function _setMapRepeat() {
 		if (!mapSettings.shouldRun) repeatClicked();
 		if (game.global.repeatMap && mapSettings.biome && mapSettings.biome === 'Any' && mapObj.location === 'Forest') repeatClicked();
 		if (game.global.repeatMap && MODULES.mapFunctions.runUniqueMap) repeatClicked();
-		if (game.global.repeatMap && challengeActive('Experience') && mapObj.location === 'Bionic' && game.global.world > 600 && mapObj.level >= 605) repeatClicked();
+		if (game.global.repeatMap && challengeActive('Experience') && mapObj.location === 'Bionic' && game.global.world > 600 && mapObj.level >= 605 && getPageSetting('experience')) repeatClicked();
 		if (mapSettings.prestigeFragMapBought && game.global.repeatMap) prestigeRaidingMapping();
 
 		if (game.global.repeatMap && !mapSettings.prestigeFragMapBought) {
@@ -502,9 +518,17 @@ function _autoMapsCreate(mapObj) {
 //Before we create a map check if we are currently in a map and if it doesn't match our farming type then recycle it.
 function _abandonMapCheck(selectedMap = null, runUnique) {
 	if (mapSettings.mapName === 'Desolation Gear Scum' && game.global.lastClearedCell + 2 === 1) return;
+
 	if (game.global.currentMapId !== '') {
 		//If we don't have info on the previous map then set it.
 		if (MODULES.maps.lastMapWeWereIn.id === 0 || MODULES.maps.lastMapWeWereIn.id !== game.global.currentMapId) MODULES.maps.lastMapWeWereIn = game.global.mapsOwnedArray[getMapIndex(game.global.currentMapId)];
+
+		if (runUnique && game.global.currentMapId !== selectedMap) recycleMap();
+
+		if (mapSettings.mapName === 'Desolation Destacking' && mapSettings.equality) {
+			if (MODULES.maps.lastMapWeWereIn.level !== mapSettings.mapLevel + game.global.world) recycleMap();
+			return;
+		}
 
 		//Ensure the map has the correct biome, if not then recycle it.
 		if (mapSettings.biome && ((mapSettings.biome === 'Any' && MODULES.maps.lastMapWeWereIn.location === 'Forest') || MODULES.maps.lastMapWeWereIn.location !== mapSettings.biome)) recycleMap();
@@ -515,13 +539,12 @@ function _abandonMapCheck(selectedMap = null, runUnique) {
 		if (MODULES.maps.lastMapWeWereIn.bonus === undefined) {
 			if (mapSettings.special !== '0') recycleMap();
 		} else if (MODULES.maps.lastMapWeWereIn.bonus !== mapSettings.special) recycleMap();
-		if (runUnique && game.global.currentMapId !== selectedMap) recycleMap();
 	}
 }
 
 function _runSelectedMap(mapId, runUnique) {
 	_abandonMapCheck(mapId, runUnique);
-	selectMap(mapId);
+	if (game.global.currentMapId !== mapId) selectMap(mapId);
 	runMap();
 	debug(`Running ${prettifyMap(MODULES.maps.lastMapWeWereIn)}`, 'maps', 'th-large');
 }
@@ -533,13 +556,12 @@ function _checkWaitForFrags() {
 	MODULES.maps.fragmentCost = Infinity;
 }
 
-function _slowScumCheck() {
+function _slowScumCheck(mapObj = getCurrentMapObject()) {
 	if (MODULES.maps.slowScumming || !game.global.mapsActive || game.global.universe !== 2) return;
 	if (getPageSetting('testMapScummingValue') <= 0 || hdStats.hdRatioMap < getPageSetting('testMapScummingValue')) return;
 	let canSlowScum = ['Map Bonus', 'Prestige Raiding', 'Mayhem Destacking', 'Pandemonium Destacking', 'Desolation Gear Scum'].indexOf(mapSettings.mapName) !== -1;
 	if (!canSlowScum) return;
 
-	const mapObj = getCurrentMapObject();
 	if (mapObj.noRecycle || mapObj.size !== 20) return;
 
 	if (game.global.mapRunCounter !== 0 || !MODULES.maps.slowScumming) slowScum();

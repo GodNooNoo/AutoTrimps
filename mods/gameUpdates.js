@@ -291,6 +291,59 @@ function updateLabels(force) {
 	checkAndDisplayEquipment();
 }
 
+function updateAllInnerHtmlFrames() {
+	if (mutations.Magma.active()) updateGeneratorInfo();
+	updateTurkimpTime(true);
+
+	if (challengeActive('Balance') || challengeActive('Unbalance')) updateBalanceStacks();
+	if (challengeActive('Electricity') || challengeActive('Mapocalypse')) updateElectricityStacks();
+	if (challengeActive('Life')) updateLivingStacks();
+	if (challengeActive('Nom')) updateNomStacks();
+	if (challengeActive('Toxicity')) updateToxicityStacks();
+	if (challengeActive('Lead')) manageLeadStacks();
+
+	if (game.global.antiStacks > 0) updateAntiStacks();
+	updateTitimp();
+	if (getHeirloomBonus('Shield', 'gammaBurst') > 0) updateGammaStacks();
+	setEmpowerTab();
+	handlePoisonDebuff();
+	handleIceDebuff();
+	handleWindDebuff();
+
+	if (!usingRealTimeOffline) {
+		updateSideTrimps();
+		gather();
+		breed();
+		updateAllBattleNumbers();
+		setVoidCorruptionIcon();
+
+		if (!game.global.preMapsActive && game.global.mapBonus > 0) {
+			let innerText = game.global.mapBonus;
+			if (game.talents.mapBattery.purchased && game.global.mapBonus === 10) innerText = "<span class='mapBonus10'>" + innerText + '</span>';
+			const mapBtnElem = document.getElementById('mapsBtnText');
+			const mapBtnText = `Maps (${innerText})`;
+			if (mapBtnElem.innerHTML !== mapBtnText) mapBtnElem.innerHTML = mapBtnText;
+		}
+	}
+
+	let cell, cellNum;
+	if (game.global.mapsActive) {
+		cellNum = game.global.lastClearedMapCell + 1;
+		cell = game.global.mapGridArray[cellNum];
+	} else {
+		cellNum = game.global.lastClearedCell + 1;
+		cell = game.global.gridArray[cellNum];
+	}
+
+	const badAttackElem = document.getElementById('badGuyAttack');
+	const badAttackText = calculateDamage(cell.attack, true, false, false, cell);
+	if (badAttackElem.innerHTML != badAttackText) badAttackElem.innerHTML = badAttackText;
+
+	const goodAttackElem = document.getElementById('goodGuyAttack');
+	const goodAttackText = calculateDamage(game.global.soldierCurrentAttack, true, true);
+	if (goodAttackElem.innerHTML != goodAttackText) goodAttackElem.innerHTML = goodAttackText;
+}
+
 function updateSideTrimps() {
 	const trimps = game.resources.trimps;
 	const realMax = trimps.realMax();
@@ -299,8 +352,8 @@ function updateSideTrimps() {
 	let elemText = prettify(trimps.employed);
 	if (elem.innerHTML != elemText && shouldUpdate()) elem.innerHTML = elemText;
 
-	const multitaskingMult = game.permaBoneBonuses.multitasking.owned ? game.permaBoneBonuses.multitasking.mult() : 1;
-	const breedEmployed = trimps.employed * multitaskingMult;
+	const multitaskingMult = game.permaBoneBonuses.multitasking.owned ? game.permaBoneBonuses.multitasking.mult() : 0;
+	const breedEmployed = trimps.employed * (1 - multitaskingMult);
 	const breedCount = trimps.owned - breedEmployed > 2 ? prettify(Math.floor(trimps.owned - breedEmployed)) : 0;
 
 	elem = document.getElementById('trimpsUnemployed');
@@ -460,7 +513,7 @@ function updateButtonColor(what, canAfford, isJob) {
 	}
 }
 
-function updateTurkimpTime() {
+function updateTurkimpTime(drawIcon = false) {
 	const elem = document.getElementById('turkimpTime');
 
 	if (game.talents.turkimp2.purchased) {
@@ -471,7 +524,7 @@ function updateTurkimpTime() {
 
 	if (game.global.turkimpTimer <= 0) return;
 
-	game.global.turkimpTimer -= 100;
+	if (!drawIcon) game.global.turkimpTimer -= 100;
 	let timeRemaining = game.global.turkimpTimer;
 
 	if (timeRemaining <= 0) {
@@ -936,6 +989,11 @@ function drawGrid(maps) {
 		}
 	}
 
+	const width = `${100 / cols}%`;
+	const paddingTop = `${100 / cols / 19}vh`;
+	const paddingBottom = `${100 / cols / 19}vh`;
+	const fontSize = `${cols / 14 + 1}vh`;
+
 	let className = '';
 	if (game.global.universe === 1 && !maps && game.global.world >= 60 && game.global.world <= 80) {
 		if (game.global.world === 60) className = 'gridOverlayGreenGradient1';
@@ -962,10 +1020,6 @@ function drawGrid(maps) {
 
 			const cell = game.global[maps ? 'mapGridArray' : 'gridArray'][counter];
 			const id = `${idText}${counter}`;
-			const width = `${100 / cols}%`;
-			const paddingTop = `${100 / cols / 19}vh`;
-			const paddingBottom = `${100 / cols / 19}vh`;
-			const fontSize = `${cols / 14 + 1}vh`;
 
 			let className = ['battleCell', 'cellColorNotBeaten'];
 			let background = '';
@@ -1015,6 +1069,25 @@ function drawGrid(maps) {
 
 	const eggCell = document.querySelector('.eggCell');
 	if (eggCell) eggCell.addEventListener('click', easterEggClicked);
+}
+
+function clearQueue(specific = false) {
+	if (!specific) game.global.clearingBuildingQueue = true;
+	let existing = 0;
+
+	for (let x = 0; x < game.global.nextQueueId; x++) {
+		const queueItem = document.getElementById(`queueItem${x}`);
+		if (!queueItem) continue;
+
+		existing++;
+
+		if (specific && game.global.buildingsQueue[existing - 1].split('.')[0] !== specific) continue;
+		else existing--;
+
+		removeQueueItem(`queueItem${x}`, true);
+	}
+
+	game.global.clearingBuildingQueue = false;
 }
 
 function updateAllBattleNumbers(skipNum) {
@@ -1102,7 +1175,7 @@ function manageLeadStacks(remove) {
 		if (determinedBuff === null) {
 			const goodGuyElem = document.getElementById('goodGuyName');
 			const htmlMessage = '&nbsp<span class="badge antiBadge" id="determinedBuff" onmouseover="tooltip(\'Determined\', \'customText\', event, \'Your Trimps are determined to succeed. They gain 50% attack and earn double resources from all sources.\')" onmouseout="tooltip(\'hide\')"><span class="icomoon icon-sun2"></span></span>';
-			if (goodGuyElem.innerHTML !== htmlMessage) goodGuyElem.innerHTML = htmlMessage;
+			if (!goodGuyElem.innerHTML.includes(htmlMessage)) goodGuyElem.innerHTML += htmlMessage;
 			determinedBuff = document.getElementById('determinedBuff');
 		}
 		determinedBuff.style.display = 'inline';
@@ -1130,7 +1203,7 @@ function manageLeadStacks(remove) {
 }
 
 function updateToxicityStacks() {
-	if (!shouldUpdate()) return;
+	if (!shouldUpdate() && challengeActive('Toxicity')) return;
 
 	const elem = document.getElementById('toxicityBuff');
 	const stackCount = game.challenges.Toxicity.stacks;
@@ -1155,7 +1228,8 @@ function updateLivingStacks() {
 	if (!elem) {
 		const goodGuyElem = document.getElementById('goodGuyName');
 		const htmlMessage = `&nbsp<span class="badge antiBadge" id="livingBuff" onmouseover="tooltip('Unliving', null, event)" onmouseout="tooltip('hide')"><span id="livingStacks">${stackCount}</span>&nbsp;<span style="margin-top: 2%" class="icomoon icon-shareable"></span></span>`;
-		if (goodGuyElem.innerHTML !== htmlMessage) goodGuyElem.innerHTML += htmlMessage;
+		if (!goodGuyElem.innerHTML.includes(htmlMessage)) goodGuyElem.innerHTML += htmlMessage;
+
 		return;
 	}
 
@@ -1178,7 +1252,7 @@ function checkCrushedCrit() {
 }
 
 function updateElectricityStacks(tipOnly) {
-	if (!shouldUpdate()) return;
+	if (!shouldUpdate() && (challengeActive('Electricity') || challengeActive('Mapocalypse'))) return;
 	const elem = document.getElementById('debuffSpan');
 
 	if (game.challenges.Electricity.stacks > 0) {
@@ -1221,6 +1295,7 @@ function updateAntiStacks() {
 function updateTitimp() {
 	if (!shouldUpdate()) return;
 	const elem = document.getElementById('titimpBuff');
+
 	if (game.global.titimpLeft < 1) {
 		if (elem && elem.innerHTML !== '') elem.innerHTML = '';
 		return;
@@ -1232,7 +1307,7 @@ function updateTitimp() {
 }
 
 function updateNomStacks(number) {
-	if (!shouldUpdate()) return;
+	if (!shouldUpdate() && challengeActive('Nom')) return;
 
 	const elem = document.getElementById('nomStack');
 	if (!elem) {
@@ -1243,7 +1318,8 @@ function updateNomStacks(number) {
 }
 
 function updateBalanceStacks() {
-	if (!shouldUpdate()) return;
+	if (!shouldUpdate() && (challengeActive('Balance') || challengeActive('Unbalance'))) return;
+
 	let elem = document.getElementById('balanceSpan');
 	if (!elem) {
 		document.getElementById('goodGuyName').innerHTML += `<span id='balanceSpan'></span>`;
@@ -1407,6 +1483,7 @@ function rewardLiquidZone() {
 	messageLock = true;
 	const scryBonus = isScryerBonusActive();
 	const hiddenUpgrades = new Set(['fiveTrimpMax', 'Map', 'fruit', 'groundLumber', 'freeMetals', 'Foreman', 'FirstMap']);
+
 	for (let x = 1; x < 100; x++) {
 		game.global.voidSeed++;
 		game.global.scrySeed++;
@@ -1437,9 +1514,7 @@ function rewardLiquidZone() {
 			}
 		}
 		if (typeof game.badGuys[cell.name].loot !== 'undefined') game.badGuys[cell.name].loot(cell.level);
-		if (typeof trackedImps[cell.name] !== 'undefined') {
-			trackedImps[cell.name]++;
-		}
+		if (typeof trackedImps[cell.name] !== 'undefined') trackedImps[cell.name]++;
 	}
 
 	messageLock = false;
@@ -1461,6 +1536,7 @@ function rewardLiquidZone() {
 	if (messages.enabled && (messages.primary || messages.secondary)) {
 		let resourceText = [];
 		const heCount = game.resources.helium.owned - initialResources.helium;
+
 		if (messages.helium && heCount > 0) {
 			resourceText.push(` Helium - ${prettify(heCount)}`);
 		}
@@ -1728,7 +1804,6 @@ function setEmpowerTab() {
 }
 
 function handlePoisonDebuff() {
-	if (!shouldUpdate()) return;
 	let elem = document.getElementById('poisonEmpowermentIcon');
 
 	if (getEmpowerment() !== 'Poison') {
@@ -1738,6 +1813,8 @@ function handlePoisonDebuff() {
 		}
 		return;
 	}
+
+	if (!shouldUpdate()) return;
 
 	if (!elem) {
 		document.getElementById('badDebuffSpan').innerHTML += `<span class="badge badBadge" id="poisonEmpowermentIcon" onmouseover="tooltip('Poisoned', null, event)" onmouseout="tooltip('hide')"><span id="poisonEmpowermentText"></span><span class="icomoon icon-flask"></span></span>`;
@@ -1756,7 +1833,6 @@ function handlePoisonDebuff() {
 }
 
 function handleIceDebuff() {
-	if (!shouldUpdate()) return;
 	let elem = document.getElementById('iceEmpowermentIcon');
 
 	if (getEmpowerment() !== 'Ice') {
@@ -1766,6 +1842,8 @@ function handleIceDebuff() {
 		}
 		return;
 	}
+
+	if (!shouldUpdate()) return;
 
 	if (!elem) {
 		document.getElementById('badDebuffSpan').innerHTML += `<span class="badge badBadge" id="iceEmpowermentIcon" onmouseover="tooltip('Chilled', null, event)" onmouseout="tooltip('hide')"><span id="iceEmpowermentText"></span><span class="glyphicon glyphicon-certificate"></span></span>`;
@@ -1784,7 +1862,6 @@ function handleIceDebuff() {
 }
 
 function handleWindDebuff() {
-	if (!shouldUpdate()) return;
 	let elem = document.getElementById('windEmpowermentIcon');
 	if (getEmpowerment() !== 'Wind') {
 		game.empowerments.Wind.currentDebuffPower = 0;
@@ -1793,6 +1870,8 @@ function handleWindDebuff() {
 		}
 		return;
 	}
+
+	if (!shouldUpdate()) return;
 
 	if (!elem) {
 		document.getElementById('badDebuffSpan').innerHTML += `<span class="badge badBadge" id="windEmpowermentIcon" onmouseover="tooltip('Breezy', null, event)" onmouseout="tooltip('hide')"><span id="windEmpowermentText"></span><span class="icomoon icon-air"></span></span>`;
@@ -1849,6 +1928,7 @@ function calculateDamage(number = 1, buildString, isTrimp, noCheckAchieve, cell,
 			strengthTowers: () => 1 + playerSpireTraps.Strength.getWorldBonus() / 100,
 			sharpTrimps: () => (game.singleRunBonuses.sharpTrimps.owned ? 1.5 : 1)
 		};
+
 		number = applyMultipliers(multipliers, number);
 
 		if (game.global.universe === 1) {
@@ -1868,6 +1948,7 @@ function calculateDamage(number = 1, buildString, isTrimp, noCheckAchieve, cell,
 				scryerBonus: () => (scryerBonusActive ? 2 : 1),
 				iceEmpowerment: () => (getEmpowerment() === 'Ice' ? 1 + game.empowerments.Ice.getDamageModifier() : 1)
 			};
+
 			number = applyMultipliers(multipliers, number);
 
 			const challengeMultipliers = {
@@ -1876,6 +1957,7 @@ function calculateDamage(number = 1, buildString, isTrimp, noCheckAchieve, cell,
 				Life: () => game.challenges.Life.getHealthMult(),
 				Lead: () => (game.global.world % 2 === 1 ? 1.5 : 1)
 			};
+
 			number = applyMultipliers(challengeMultipliers, number, true);
 
 			if (game.global.antiStacks > 0) updateAntiStacks();
@@ -1896,6 +1978,7 @@ function calculateDamage(number = 1, buildString, isTrimp, noCheckAchieve, cell,
 				novaStacks: () => (!game.global.mapsActive && game.global.novaMutStacks > 0 ? u2Mutations.types.Nova.trimpAttackMult() : 1),
 				spireDaily: () => (challengeActive('Daily') && Fluffy.isRewardActive('SADailies') ? Fluffy.rewardConfig.SADailies.attackMod() : 1)
 			};
+
 			number = applyMultipliers(multipliers, number);
 
 			const challengeMultipliers = {
@@ -1915,12 +1998,15 @@ function calculateDamage(number = 1, buildString, isTrimp, noCheckAchieve, cell,
 			};
 			number = applyMultipliers(challengeMultipliers, number, true);
 		}
+
 		if (challengeActive('Daily')) {
 			if (game.talents.daily.purchased) number *= 1.5;
+
 			if (typeof game.global.dailyChallenge.minDamage !== 'undefined') {
 				if (minFluct === -1) minFluct = fluctuation;
 				minFluct += dailyModifiers.minDamage.getMult(game.global.dailyChallenge.minDamage.strength);
 			}
+
 			if (typeof game.global.dailyChallenge.maxDamage !== 'undefined') {
 				if (maxFluct === -1) maxFluct = fluctuation;
 				maxFluct += dailyModifiers.maxDamage.getMult(game.global.dailyChallenge.maxDamage.strength);
@@ -2041,7 +2127,7 @@ function calculateDamage(number = 1, buildString, isTrimp, noCheckAchieve, cell,
 }
 
 function buyBuilding(what, confirmed, fromAuto, forceAmt) {
-	if (game.options.menu.pauseGame.enabled || what === 'Hub') return false;
+	if (game.options.menu.pauseGame.enabled || what === 'Hub' || game.global.clearingBuildingQueue) return false;
 	if (!forceAmt && !confirmed && game.options.menu.lockOnUnlock.enabled === 1 && new Date().getTime() - 1000 <= game.global.lastUnlock) return false;
 
 	const toBuy = game.buildings[what];
@@ -2410,6 +2496,283 @@ function calcBaseStats(equipType = 'attack') {
 	return bonus;
 }
 
+function abandonChallengeResetEnemy() {
+	const worldCell = game.global.gridArray[game.global.lastClearedCell + 1];
+	if (!worldCell) return;
+
+	let statChallenge = false;
+	let statMaps = false;
+
+	if (challengeActive('Daily')) {
+		if (typeof game.global.dailyChallenge.badHealth !== 'undefined') {
+			statChallenge = true;
+		}
+
+		if (typeof game.global.dailyChallenge.empower !== 'undefined') {
+			statChallenge = true;
+		}
+
+		if (typeof game.global.dailyChallenge.badMapHealth !== 'undefined' && game.global.currentMapId !== '') {
+			statMaps = true;
+		}
+
+		if (typeof game.global.dailyChallenge.empoweredVoid !== 'undefined' && game.global.voidBuff === 'Void') {
+			statMaps = true;
+		}
+	}
+
+	if (game.global.universe === 1) {
+		const challenges = ['Meditate', 'Scientist', 'Balance', 'Life', 'Toxicity', 'Coordinate', 'Corrupted', 'Domination', 'Obliterated', 'Eradicated', 'Frigid', 'Experience'];
+		statChallenge = challenges.some((challenge) => challengeActive(challenge));
+
+		if (challengeActive('Lead') && game.challenges.Lead.stacks > 0) {
+			statChallenge = true;
+		}
+
+		statMaps = statChallenge;
+	}
+
+	if (game.global.universe === 2) {
+		const challenges = ['Unbalance', 'Duel', 'Wither', 'Quest', 'Archaeology', 'Mayhem', 'Exterminate', 'Nurture', 'Pandemonium', 'Alchemy', 'Glass', 'Hypothermia', 'Desolation'];
+		statChallenge = challenges.some((challenge) => challengeActive(challenge));
+
+		if (challengeActive('Revenge') && game.global.world % 2 === 0) {
+			statChallenge = true;
+		}
+
+		statMaps = statChallenge;
+
+		if (challengeActive('Storm')) {
+			statChallenge = true;
+		} else if (challengeActive('Exterminate')) {
+			statChallenge = true;
+		} else if (challengeActive('Smithless') && game.global.world % 25 === 0 && worldCell.ubersmith && !worldCell.failedUber) {
+			statChallenge = true;
+		}
+	}
+
+	return [statChallenge, statMaps];
+}
+
+function abandonChallenge(restart) {
+	/* Temp inclusion for graphs to still track this the way Quia intends if this file is loaded after graphs is. */
+	if (typeof Graphs !== 'undefined' && typeof Graphs.Push !== 'undefined' && typeof Graphs.Push.zoneData === 'function') Graphs.Push.zoneData();
+
+	let challengeName = game.global.challengeActive;
+	let challenge = game.challenges[challengeName];
+	const [resetWorld, resetMap] = abandonChallengeResetEnemy();
+	if (game.global.universe === 2 && (game.global.runningChallengeSquared || challengeName === 'Daily')) game.global.u2MutationSeed = game.global.ogU2MutationSeed;
+
+	if (game.global.runningChallengeSquared) {
+		let challengeList;
+		if (challenge.multiChallenge) challengeList = challenge.multiChallenge;
+		else challengeList = [challengeName];
+
+		game.global.challengeActive = '';
+		game.global.multiChallenge = {};
+
+		for (let x = 0; x < challengeList.length; x++) {
+			if (game.global.world > game.c2[challengeList[x]]) game.c2[challengeList[x]] = game.global.world;
+			if (typeof game.challenges[challengeList[x]].abandon !== 'undefined' && game.challenges[challengeList[x]].fireAbandon) game.challenges[challengeList[x]].abandon();
+		}
+
+		if (game.global.capTrimp && game.c2.Trimp > 230) game.c2.Trimp = 230;
+		countChallengeSquaredReward();
+
+		if (!restart) {
+			fadeIn('helium', 10);
+			game.global.runningChallengeSquared = false;
+			if (game.global.universe === 2 && (game.global.world > 30 || (game.global.world === 30 && game.global.lastClearedCell >= 29))) unlockJob('Meteorologist');
+		}
+	} else if (challenge.fireAbandon && typeof challenge.abandon !== 'undefined') {
+		game.global.challengeActive = '';
+		challenge.abandon();
+	}
+
+	game.global.challengeActive = '';
+	cancelPortal();
+
+	if (challengeName === 'Scientist') {
+		document.getElementById('scienceCollectBtn').style.display = 'block';
+	}
+
+	if (game.challenges[challengeName].mustRestart) {
+		if (restart) game.global.selectedChallenge = challengeName;
+		resetGame(true);
+	}
+
+	if (resetWorld || resetMap) {
+		if (resetWorld) {
+			const worldCell = game.global.gridArray[game.global.lastClearedCell + 1];
+			if (worldCell) worldCell.maxHealth = -1;
+		}
+
+		if (resetMap && game.global.currentMapId !== '') {
+			const mapCell = game.global.mapGridArray[game.global.lastClearedMapCell + 1];
+			mapCell.maxHealth = -1;
+		}
+
+		if (game.global.fighting) game.global.fighting = false;
+	}
+
+	if (challengeName !== 'Daily') message('Your challenge has been abandoned.', 'Notices');
+	refreshMaps();
+}
+
+function runMapAtZone(index) {
+	const setting = game.options.menu.mapAtZone.getSetZone()[index];
+	const quagCheck = setting.preset === 5 && !challengeActive('Quagmire');
+	const voidCheck = setting.preset === 4 && !getNextVoidId();
+	const runUniqueMap = setting.preset === 3 || setting.preset === 5 || setting.preset >= 8;
+	let uniqueMap = false;
+
+	if (setting.check && (quagCheck || voidCheck)) {
+		checkMapAtZoneWorld(true);
+		return;
+	}
+
+	if (runUniqueMap) {
+		const location = setting.preset === 3 ? 'Bionic' : setting.preset === 5 ? 'Darkness' : setting.preset === 8 ? 'Melting' : 'Frozen';
+
+		for (let x = 0; x < game.global.mapsOwnedArray.length; x++) {
+			if (game.global.mapsOwnedArray[x].location === location) {
+				uniqueMap = game.global.mapsOwnedArray[x];
+				break;
+			}
+		}
+	}
+
+	if (runUniqueMap && !uniqueMap) {
+		checkMapAtZoneWorld(true);
+		return;
+	}
+
+	if (setting.cell === 100 && (challengeActive('Mayhem') || challengeActive('Pandemonium'))) {
+		startFight();
+	}
+
+	mapsClicked(true);
+	if (game.global.spireActive && game.global.lastClearedCell !== -1) deadInSpire();
+	toggleSetting('mapAtZone', null, false, true);
+
+	if (!setting || !setting.check) {
+		checkMapAtZoneWorld(true);
+		return;
+	}
+
+	if (challengeActive('Quest') && game.challenges.Quest.questId === 5 && !game.challenges.Quest.questComplete) {
+		if (game.global.lastClearedCell === 98) game.challenges.Quest.checkQuest();
+		else {
+			game.challenges.Quest.questProgress++;
+			if (game.challenges.Quest.questProgress === 1) game.challenges.Quest.failQuest();
+		}
+	}
+
+	//Don't change repeat if the setting is to run void maps, instead change void repeat
+	if (setting.repeat && setting.preset !== 4) {
+		game.global.repeatMap = setting.repeat === 1;
+		if (usingRealTimeOffline) offlineProgress.repeatSetting = game.global.repeatMap;
+		repeatClicked(true);
+	}
+
+	if (setting.exit) {
+		game.options.menu.exitTo.enabled = setting.exit - 1;
+		if (usingRealTimeOffline) offlineProgress.exitTo = game.options.menu.exitTo.enabled;
+		toggleSetting('exitTo', null, false, true);
+	}
+
+	if (setting.until && setting.until !== 5) {
+		if (setting.until >= 6) {
+			game.options.menu.repeatUntil.enabled = 0;
+		} else game.options.menu.repeatUntil.enabled = setting.until - 1;
+		if (usingRealTimeOffline) offlineProgress.repeatUntil = game.options.menu.repeatUntil.enabled;
+		toggleSetting('repeatUntil', null, false, true);
+	}
+
+	if (setting.preset === 3) {
+		const nextBw = getNextBwId();
+
+		if (nextBw) {
+			game.options.menu.climbBw.enabled = setting.until === 5 ? 1 : 0;
+			toggleSetting('climbBw', null, false, true);
+			if (setting.until === 5) {
+				//climbing
+				game.global.mazBw = setting.bwWorld;
+				//if repeating on zones
+				if ((setting.times > 0 || setting.times === -2) && game.global.world > setting.world) {
+					//see how many times this has repeated by zone, increase target climb level by appropriate amount for zones skipped
+					const times = setting.times === -2 ? setting.tx : setting.times;
+					const repeats = Math.round((game.global.world - setting.world) / times);
+					if (repeats > 0) game.global.mazBw += times * repeats;
+				}
+				game.options.menu.repeatUntil.enabled = 2;
+				if (usingRealTimeOffline) offlineProgress.repeatUntil = game.options.menu.repeatUntil.enabled;
+				toggleSetting('repeatUntil', null, false, true);
+			} else if (setting.until === 6) game.global.mapCounterGoal = 25;
+			else if (setting.until === 7) game.global.mapCounterGoal = 50;
+			else if (setting.until === 8) game.global.mapCounterGoal = 100;
+			else if (setting.until === 9) game.global.mapCounterGoal = setting.rx;
+			toggleSetting('repeatUntil', null, false, true);
+			if (game.global.currentMapId) recycleMap();
+			selectMap(nextBw);
+			runMap();
+		}
+
+		return;
+	} else if (setting.preset === 4) {
+		const nextVoid = getNextVoidId();
+
+		if (nextVoid) {
+			if (setting.repeat) {
+				game.options.menu.repeatVoids.enabled = setting.repeat === 1 ? 1 : 0;
+			}
+			if (game.global.currentMapId) recycleMap();
+			selectMap(nextVoid);
+			runMap();
+		}
+
+		return;
+	} else if (runUniqueMap) {
+		if (uniqueMap) {
+			if (game.global.currentMapId) recycleMap();
+			selectMap(uniqueMap.id);
+			runMap();
+		}
+
+		if (setting.until === 6) game.global.mapCounterGoal = 25;
+		else if (setting.until === 7) game.global.mapCounterGoal = 50;
+		else if (setting.until === 8) game.global.mapCounterGoal = 100;
+		else if (setting.until === 9) game.global.mapCounterGoal = setting.rx;
+
+		return;
+	}
+
+	if (game.global.mapsOwnedArray.length >= 50) {
+		recycleBelow(true, game.global.world - 3);
+	}
+
+	let preset = setting.preset;
+	if (preset > 5) preset -= 3;
+
+	selectAdvMapsPreset(preset + 1);
+	const mapStatus = buyMap();
+
+	if (mapStatus === 1) {
+		if (game.global.currentMapId) recycleMap();
+		selectMap(game.global.mapsOwnedArray[game.global.mapsOwnedArray.length - 1].id);
+		runMap();
+	} else {
+		checkMapAtZoneWorld(true);
+		return;
+	}
+
+	if (setting.until === 6) game.global.mapCounterGoal = 25;
+	if (setting.until === 7) game.global.mapCounterGoal = 50;
+	if (setting.until === 8) game.global.mapCounterGoal = 100;
+	if (setting.until === 9) game.global.mapCounterGoal = setting.rx;
+	toggleSetting('repeatUntil', null, false, true);
+}
+
 function startFight() {
 	if (game.global.challengeActive && typeof game.challenges[game.global.challengeActive].onStartFight === 'function') {
 		game.challenges[game.global.challengeActive].onStartFight();
@@ -2451,6 +2814,7 @@ function startFight() {
 				}
 				return;
 			}
+
 			nextWorld();
 			game.stats.zonesCleared.value++;
 			checkAchieve('totalZones');
@@ -2530,7 +2894,7 @@ function startFight() {
 	}
 
 	const badGuyName = document.getElementById('badGuyName');
-	if (badGuyName.innerHTML !== badName && shouldUpdate()) badGuyName.innerHTML = badName;
+	if (badGuyName.innerHTML !== badName && shouldUpdate(500)) badGuyName.innerHTML = badName;
 
 	if (challengeActive('Domination')) handleDominationDebuff();
 	const corruptionStart = mutations.Corruption.start(true);
@@ -3470,7 +3834,7 @@ function fight(makeUp) {
 					if (game.talents.mapBattery.purchased && game.global.mapBonus === 10) innerText = "<span class='mapBonus10'>" + innerText + '</span>';
 					const mapBtnElem = document.getElementById('mapsBtnText');
 					const mapBtnText = `Maps (${innerText})`;
-					if (mapBtnElem.innerHTML !== mapBtnText && shouldUpdate()) mapBtnElem.innerHTML = mapBtnText;
+					if (mapBtnElem.innerHTML !== mapBtnText && shouldUpdate(500)) mapBtnElem.innerHTML = mapBtnText;
 				}
 				game.global.lastClearedMapCell = -1;
 				buildMapGrid(game.global.currentMapId);
@@ -3533,10 +3897,11 @@ function fight(makeUp) {
 
 	const empowerment = getEmpowerment();
 	const empowermentUber = getUberEmpowerment();
+
 	let cellAttack = calculateDamage(cell.attack, false, false, false, cell);
 	const badAttackElem = document.getElementById('badGuyAttack');
 	const badAttackText = calculateDamage(cell.attack, true, false, false, cell);
-	if (badAttackElem.innerHTML != badAttackText && shouldUpdate()) badAttackElem.innerHTML = badAttackText;
+	if (badAttackElem.innerHTML != badAttackText && shouldUpdate(500)) badAttackElem.innerHTML = badAttackText;
 	let badCrit = false;
 
 	if (challengeActive('Crushed')) {
@@ -3587,7 +3952,7 @@ function fight(makeUp) {
 	let trimpAttack = calculateDamage(game.global.soldierCurrentAttack, false, true);
 	const goodAttackElem = document.getElementById('goodGuyAttack');
 	const goodAttackText = calculateDamage(game.global.soldierCurrentAttack, true, true);
-	if (goodAttackElem.innerHTML != goodAttackText && shouldUpdate()) goodAttackElem.innerHTML = goodAttackText;
+	if (goodAttackElem.innerHTML != goodAttackText && shouldUpdate(500)) goodAttackElem.innerHTML = goodAttackText;
 
 	updateTitimp();
 	let critTier = 0;
@@ -4637,7 +5002,7 @@ function runEverySecond(makeUp) {
 		game.stats.bestHeliumHourThisRun.evaluate();
 		const newHeliumPhHTML = `${prettify(heHr)}/hr`;
 		const heliumPhElem = document.getElementById('heliumPh');
-		if (heliumPhElem.innerHTML !== newHeliumPhHTML && shouldUpdate()) {
+		if (heliumPhElem.innerHTML !== newHeliumPhHTML && shouldUpdate(1000)) {
 			heliumPhElem.innerHTML = newHeliumPhHTML;
 		}
 		if (game.global.universe === 1) checkAchieve('heliumHour');
@@ -4752,7 +5117,7 @@ function updateTalentNumbers() {
 function manageEqualityStacks() {
 	if (game.global.universe !== 2) return;
 	const equality = getPerkLevel('Equality');
-	if (equality === 0) return;
+
 	if (game.portal.Equality.scalingCount < 0) game.portal.Equality.scalingCount = 0;
 	if (game.portal.Equality.scalingCount > equality) game.portal.Equality.scalingCount = equality;
 	const tabElem = document.getElementById('equalityTab');

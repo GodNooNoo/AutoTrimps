@@ -265,6 +265,7 @@ function getNextGoldenUpgrade() {
 		let purchased = game.goldenUpgrades[name].purchasedAt.length;
 		let old = done[name] ? done[name] : 0;
 
+		if (name === 'Helium' && game.global.runningChallengeSquared) continue;
 		if (name === 'Void' && parseFloat((game.goldenUpgrades.Void.currentBonus + game.goldenUpgrades.Void.nextAmt()).toFixed(2)) > 0.72) continue;
 
 		if (purchased < number + old) return name;
@@ -298,5 +299,10 @@ function autoGoldUpgrades() {
 	if (!goldenUpgradesShown || getAvailableGoldenUpgrades() <= 0) return;
 
 	const selected = getNextGoldenUpgrade();
-	if (selected) buyGoldenUpgrade(selected);
+	if (selected) {
+		const heName = heliumOrRadon();
+		const guName = selected === 'Helium' ? heName : selected;
+		buyGoldenUpgrade(selected);
+		debug(`Purchased Golden ${guName} #${game.goldenUpgrades[selected].purchasedAt.length}`, 'golden_Upgrades', '*upload2');
+	}
 }
