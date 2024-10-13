@@ -16,7 +16,7 @@ function safeSetItems(storageName, storageSetting) {
 	try {
 		localStorage.setItem(storageName, storageSetting);
 	} catch (error) {
-		if (error.code === 22) debug(`Error: LocalStorage is full, or error. Attempt to delete some portals from your graph or restart browser.`);
+		if (error.code === 22) debug(`Error: LocalStorage is full, or error. Attempt to delete some portals from your graph or restart browser.`, 'error');
 	}
 }
 
@@ -118,10 +118,11 @@ function setPageSetting(setting, newValue, universe = game.global.universe) {
 //Looks at the spamMessages setting and if the message is enabled, it will print it to the message log & console.
 function debug(message, messageType, icon) {
 	if (!atSettings.initialise.loaded) return;
+	const alwaysAllow = ['offline', 'debugStats', 'test', 'heirlooms', 'profile', 'error', 'mazSettings'];
 
 	const settingArray = getPageSetting('spamMessages');
-	const canRunTW = ['maps', 'map_Destacking', 'map_Details', 'map_Skip', 'offline', 'challenge', 'debugStats', 'test'].includes(messageType);
-	const sendMessage = messageType in settingArray ? settingArray[messageType] : ['challenge', 'offline', 'debugStats', 'test'].includes(messageType);
+	const canRunTW = [...alwaysAllow, 'maps', 'map_Destacking', 'map_Details', 'map_Skip', 'challenge'].includes(messageType);
+	const sendMessage = messageType in settingArray ? settingArray[messageType] : [...alwaysAllow, 'challenge'].includes(messageType);
 
 	if (sendMessage || !messageType) {
 		console.log(`${timeStamp()} ${updatePortalTimer(true)} ${message}`);
@@ -599,7 +600,8 @@ function setupAddonUser(force) {
 		valueU2: ['hdFarm', 'voidMap', 'boneShrine', 'mapBonus', 'mapFarm', 'raiding', 'worshipperFarm', 'tributeFarm', 'smithyFarm', 'quagmire', 'archaeology', 'insanity', 'alchemy', 'hypothermia', 'desolation']
 	};
 
-	const createObjArray = () => Array.from({ length: 31 }, () => ({ done: '' }));
+	const maxSettings = _getActiveSetting().maxSettings + 1;
+	const createObjArray = () => Array.from({ length: maxSettings }, () => ({ done: '' }));
 
 	Object.entries(settings).forEach(([valueKey, settingNames]) => {
 		settingNames.forEach((item) => {
@@ -946,4 +948,133 @@ function _updateMostEfficientDisplay(element, mostEfficient) {
 	if (element.classList.contains('efficientNo') && mostEfficient) return swapClass('efficient', 'efficientYes', element);
 	if (element.classList.contains('efficientYes') && !mostEfficient) return swapClass('efficient', 'efficientNo', element);
 	swapClass('efficient', mostEfficient ? 'efficientYes' : 'efficientNo', element);
+}
+
+function togglePercentHealth() {
+	const setting = getPageSetting('displayPercentHealth');
+
+	const goodGuyHealth = document.getElementById('goodGuyHealth');
+	const goodGuyHealthMax = document.getElementById('goodGuyHealthMax');
+	const badGuyHealth = document.getElementById('badGuyHealth');
+	const badGuyHealthMax = document.getElementById('badGuyHealthMax');
+
+	const healthDisplay = setting ? 'block' : '';
+	const healthMaxDisplay = setting ? 'hidden' : '';
+
+	goodGuyHealth.style.display = healthDisplay;
+	badGuyHealth.style.display = healthDisplay;
+	goodGuyHealthMax.style.display = healthMaxDisplay;
+	badGuyHealthMax.style.display = healthMaxDisplay;
+
+	if (setting) {
+		if (goodGuyHealthMax.parentNode.childNodes[2].data === '/') {
+			goodGuyHealthMax.parentNode.removeChild(goodGuyHealthMax.parentNode.childNodes[2]);
+		}
+
+		if (badGuyHealthMax.parentNode.childNodes[2].data === '/') {
+			badGuyHealthMax.parentNode.removeChild(badGuyHealthMax.parentNode.childNodes[2]);
+		}
+	} else {
+		if (goodGuyHealthMax.parentNode.childNodes[2].data !== '/') {
+			goodGuyHealthMax.parentNode.insertBefore(document.createTextNode('/'), goodGuyHealthMax.parentNode.childNodes[2]);
+		}
+		if (badGuyHealthMax.parentNode.childNodes[2].data !== '/') {
+			badGuyHealthMax.parentNode.insertBefore(document.createTextNode('/'), badGuyHealthMax.parentNode.childNodes[2]);
+		}
+	}
+
+	updateAllBattleNumbers(true);
+}
+
+function loadRuneTrinketCounter() {
+	if (document.getElementById('runetrinketCounter') !== null) return;
+
+	const containerRunetrinketCounter = document.createElement('DIV');
+	const standard_colours = ' color: rgb(0,0,0); background-color: rgb(255,255,255);';
+	const darkmode_colours = ' color: rgb(0,0,0); background-color: rgb(93,93,93);';
+
+	let chosen_colours = standard_colours;
+	if (game.options.menu.darkTheme.enabled == 2) {
+		chosen_colours = darkmode_colours;
+	}
+
+	containerRunetrinketCounter.id = 'runetrinketCounter';
+	containerRunetrinketCounter.setAttribute('class', 'noselect');
+	containerRunetrinketCounter.setAttribute('style', 'display: block; position: absolute; top: 0; right: 0; width: 30%; font-size: 0.58em; text-align: center;' + chosen_colours);
+	containerRunetrinketCounter.setAttribute('onmouseover', RTC_populateRunetrinketCounterTooltip(true));
+	containerRunetrinketCounter.setAttribute('onmouseout', 'tooltip("hide")');
+
+	const target_area = document.getElementById('wood');
+	target_area.insertBefore(containerRunetrinketCounter, target_area.children[0]);
+
+	RTC_populateRunetrinketCounterInfo();
+}
+
+function RTC_getRunetrinketMaxFromGame() {
+	let trinkets_max = (game.portal.Observation.radLevel + 1) * game.portal.Observation.trinketsPerLevel;
+
+	if (typeof game.global.u2MutationData === 'object' && Object.keys(game.global.u2MutationData).length > 0 && game.global.u2MutationData.Runed) {
+		trinkets_max = trinkets_max * 1.5;
+	}
+
+	return trinkets_max;
+}
+
+function RTC_getRunetrinketEffect() {
+	const trinkets = Math.min(game.portal.Observation.trinkets, RTC_getRunetrinketMaxFromGame());
+	const effectiveness_per = game.portal.Observation.radLevel + 1;
+	const effectiveness = trinkets * effectiveness_per;
+
+	return prettify(effectiveness);
+}
+
+function RTC_getRunetrinketGuaranteedRate() {
+	const perklevels = game.portal.Observation.radLevel;
+	const halved = Math.floor(perklevels / 2);
+
+	return prettify(halved);
+}
+
+function RTC_makeStringForDisplay() {
+	if (game.global.universe !== 2) {
+		return '';
+	}
+
+	const runeTrinkets = game.portal.Observation.trinkets;
+	const runeTrinketsMax = RTC_getRunetrinketMaxFromGame();
+	if (runeTrinkets >= runeTrinketsMax) {
+		return '';
+	}
+
+	const runeTrinketString = `${runeTrinkets}<span style="display: block; border-bottom: 1px solid black; margin: 5px;"></span>${runeTrinketsMax}`;
+	return runeTrinketString;
+}
+
+function RTC_populateRunetrinketCounterTooltip() {
+	if (usingRealTimeOffline) {
+		return '';
+	}
+
+	let tooltipstring = '';
+	tooltipstring = "tooltip('Runetrinket Summary', 'customText', event, '";
+	tooltipstring += `<p>Runetrinkets give 1% per runetrinket per perk level, for a current boost of `;
+	tooltipstring += `${prettify(game.portal.Observation.trinkets)} &times; ${game.portal.Observation.radLevel + 1}`;
+	tooltipstring += ` = ` + `<b>+${RTC_getRunetrinketEffect()}%</b>.</p>`;
+
+	tooltipstring += `<p>${game.portal.Observation.getChanceText()}`;
+	tooltipstring += ` Also, you are getting a guaranteed <b>${RTC_getRunetrinketGuaranteedRate()}</b> every 25 zones past z100.</p>`;
+	tooltipstring += "')";
+	return tooltipstring;
+}
+
+function RTC_populateRunetrinketCounterInfo() {
+	if (usingRealTimeOffline || game.portal.Observation.radLocked) {
+		return;
+	}
+
+	const target_element = document.getElementById('runetrinketCounter');
+	const the_information = RTC_makeStringForDisplay();
+
+	if (target_element.innerHTML !== the_information) target_element.innerHTML = the_information;
+	if (the_information !== '') target_element.parentNode.setAttribute('onmouseover', RTC_populateRunetrinketCounterTooltip());
 }

@@ -39,7 +39,7 @@ function exitSpireCell(checkCell) {
 
 	if (isSpireActive && game.global.lastClearedCell + 1 > cell) {
 		endSpire();
-		debug(`Exiting Spire ${game.global.spiresCompleted + 1} at cell ${exitCell}`);
+		debug(`Exiting Spire ${game.global.spiresCompleted + 1} at cell ${exitCell}`, 'maps');
 	}
 }
 
@@ -407,15 +407,19 @@ function remakeTooltip() {
 }
 
 function _timeWarpSave() {
-	const timeRun = new Date().getTime() - offlineProgress.startTime;
-	const reduceBy = offlineProgress.totalOfflineTime + timeRun - offlineProgress.ticksProcessed * 100;
-	const keys = ['lastOnline', 'portalTime', 'zoneStarted', 'lastSoldierSentAt', 'lastSkeletimp'];
+	const { startTime, totalOfflineTime, ticksProcessed } = offlineProgress;
 
-	_adjustGlobalTimers(keys, -reduceBy);
-	save(false, true);
-	_adjustGlobalTimers(keys, reduceBy);
+	if (startTime > 0 && !game.options.menu.pauseGame.enabled) {
+		const timeRun = new Date().getTime() - startTime;
+		const reduceBy = totalOfflineTime + timeRun - ticksProcessed * 100;
+		const keys = ['lastOnline', 'portalTime', 'zoneStarted', 'lastSoldierSentAt', 'lastSkeletimp'];
 
-	debug(`Game Saved! ${formatTimeForDescriptions(reduceBy / 1000)} of offline progress left to process.`, `offline`);
+		_adjustGlobalTimers(keys, -reduceBy);
+		save(false, true);
+		_adjustGlobalTimers(keys, reduceBy);
+
+		debug(`Game Saved! ${formatTimeForDescriptions(reduceBy / 1000)} of offline progress left to process.`, `offline`);
+	}
 }
 
 function _timeWarpAutoSaveSetting() {
@@ -516,10 +520,10 @@ function _timeWarpATFunctions() {
 }
 
 function _handleMazWindow() {
-	const mazSettings = ['Map Farm', 'Map Bonus', 'Void Map', 'HD Farm', 'Raiding', 'Bionic Raiding', 'Balance Destack', 'Toxicity', 'Quagmire', 'Archaeology', 'Insanity', 'Alchemy', 'Hypothermia', 'Bone Shrine', 'Auto Golden', 'Tribute Farm', 'Smithy Farm', 'Worshipper Farm', 'Desolation Gear Scumming', 'C2 Runner', 'C3 Runner'];
+	const mazTitles = mazSettingNames(true);
 	const tooltipDiv = document.getElementById('tooltipDiv');
 
-	if (mazSettings.indexOf(tooltipDiv.children.tipTitle.innerText) === -1) {
+	if (mazTitles.indexOf(tooltipDiv.children.tipTitle.innerText) === -1) {
 		tooltipDiv.style.overflowY = '';
 		tooltipDiv.style.maxHeight = '';
 		tooltipDiv.style.width = '';

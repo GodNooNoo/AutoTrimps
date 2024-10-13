@@ -10,7 +10,7 @@ const atSettings = {
 		pathMods: 'mods/',
 		installedMain: ['versionNumber', 'SettingsGUI'],
 		loadedMain: [],
-		installedMods: ['spireTD', 'heirloomCalc', 'farmCalc', 'mutatorPreset', 'perky', 'surky'],
+		installedMods: ['spireTD', 'heirloomCalc', 'farmCalc', 'mutatorPreset', 'perky', 'surky', 'percentHealth'],
 		installedModules: ['import-export', 'utils', 'query', 'modifyGameFunctions', 'mapFunctions', 'calc', 'portal', 'upgrades', 'heirlooms', 'buildings', 'jobs', 'equipment', 'gather', 'stance', 'maps', 'breedtimer', 'combat', 'magmite', 'nature', 'other', 'fight-info', 'performance', 'bones', 'MAZ', 'minigames'],
 		loadedModules: [],
 		loadedMods: [],
@@ -31,8 +31,7 @@ const MODULES = {
 	popups: { challenge: false, respecAncientTreasure: false, remainingTime: Infinity, intervalID: null, portal: false, mazWindowOpen: false },
 	heirlooms: { plagueSwap: false, compressedCalc: false, gammaBurstPct: 1, shieldEquipped: null, breedHeirloom: false },
 	u1unlocks: [],
-	u2unlocks: [],
-	style: { lastTheme: -1 }
+	u2unlocks: []
 };
 
 let currPortalUniverse = 0;
@@ -171,8 +170,6 @@ function loadScriptsAT() {
 		gameLoop = function () {}; /* Disable game from running until script loads to ensure no time is spent without AT running */
 	}
 
-	//The basepath variable is used in graphs, can't remove this while using Quias graphs fork unless I copy code and change that line for every update.
-	basepath = `${atSettings.initialise.basepathOriginal}css/`;
 	const scripts = Array.from(document.getElementsByTagName('script'));
 	const autoTrimpsScript = scripts.find((script) => script.src.includes('AutoTrimps2'));
 
@@ -181,7 +178,7 @@ function loadScriptsAT() {
 	(async function () {
 		try {
 			const modules = ['versionNumber', ...atSettings.modules.installedMods, ...atSettings.modules.installedModules, 'SettingsGUI'];
-			const scripts = ['https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', 'https://Quiaaaa.github.io/AutoTrimps/Graphs.js'];
+			const scripts = ['https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', 'https://Quiaaaa.github.io/AutoTrimps/Graphs.js', 'https://stellar-demesne.github.io/Trimps-QWUI/qwUI.js', 'https://stellar-demesne.github.io/Trimps-VoidMapClarifier/VoidMapClarifier.js'];
 			const stylesheets = ['https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css', `${atSettings.initialise.basepath}css/tabs.css`, `${atSettings.initialise.basepath}css/farmCalc.css`, `${atSettings.initialise.basepath}css/perky.css`];
 
 			if (game.global.stringVersion === '5.9.2') {
@@ -241,6 +238,9 @@ function initialiseScript() {
 	MODULES.autoPerks.displayGUI(portalUniverse);
 	loadAugustSettings();
 	_setupATButtons();
+	loadRuneTrinketCounter();
+	setupAddonUser();
+	togglePercentHealth();
 	updateShieldData();
 
 	if (_getTargetWorldType() === 'void' && !hdStats.hitsSurvivedVoid) {
@@ -354,11 +354,12 @@ function updateInterval() {
 		tenSecond: 10000,
 		thirtySecond: 30000,
 		oneMinute: 60000,
+		fiveMinute: 300000,
 		tenMinute: 600000,
 		thirtyMinute: 1800000
 	};
 
-	for (let key in intervals) {
+	for (const key in intervals) {
 		atSettings.intervals[key] = atSettings.intervals.counter % (intervals[key] / atSettings.runInterval) === 0;
 	}
 }
@@ -464,12 +465,14 @@ function _handleNewWorld() {
 	autoEquip();
 	archaeologyAutomator();
 	challengeInfo();
+	RTC_populateRunetrinketCounterInfo();
 
 	if (atSettings.portal.currentworld === 1) {
 		MODULES.portal.zonePostpone = 0;
 		hideAutomationButtons();
 		if (!game.upgrades.Battle.done) {
 			_setButtonsPortal();
+			setupAddonUser();
 		}
 	}
 

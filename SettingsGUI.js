@@ -6,7 +6,7 @@ function automationMenuSettingsInit() {
 	autoSettings.style.maxHeight = '92.5vh';
 	autoSettings.style.overflow = 'auto';
 	autoSettings.classList.add('niceScroll');
-	settingsRow.appendChild(autoSettings);
+	settingsRow.insertBefore(autoSettings, settingsRow.childNodes[1]);
 }
 
 function initialiseAllTabs() {
@@ -29,7 +29,6 @@ function initialiseAllTabs() {
 		['C2', 'C2 - Settings for C2s'],
 		['Daily', 'Dailies - Settings for Dailies'],
 		['Heirloom', 'Heirloom Settings'],
-		['Golden', 'Golden Upgrade Settings'],
 		['Spire', 'Spire - Settings for Spires'],
 		['Magma', 'Dimensional Generator & Magmite Settings'],
 		['Nature', 'Nature Settings'],
@@ -107,11 +106,11 @@ function _minimizeAllTabs() {
 	const tabs = document.getElementsByClassName('tabcontent');
 	const links = document.getElementsByClassName('tablinks');
 
-	for (let tab of tabs) {
+	for (const tab of tabs) {
 		tab.style.display = 'none';
 	}
 
-	for (let link of links) {
+	for (const link of links) {
 		link.classList.remove('active');
 	}
 }
@@ -120,12 +119,12 @@ function _maximizeAllTabs() {
 	const tabs = document.getElementsByClassName('tabcontent');
 	const links = document.getElementsByClassName('tablinks');
 
-	for (let tab of tabs) {
+	for (const tab of tabs) {
 		if (tab.id.toLowerCase() === 'test' || tab.id.toLowerCase() === 'beta') continue;
 		tab.style.display = 'block';
 	}
 
-	for (let link of links) {
+	for (const link of links) {
 		if (link.id.toLowerCase() === 'test' || link.id.toLowerCase() === 'beta') continue;
 		link.style.display = 'block';
 		if (!link.classList.contains('active')) {
@@ -168,6 +167,7 @@ function initialiseAllSettings() {
 				}
 				return description;
 			}, 'multitoggle', 1, null, 'Core', [1, 2]);
+
 		createSetting('trapTrimps',
 			function () { return ('Trap Trimps') },
 			function () {
@@ -175,11 +175,23 @@ function initialiseAllSettings() {
 				description += "<p>The upgrades setting must be set to <b>Buy All Upgrades</b> for this to work.</p>";
 				description += "<p><b>Recommended:</b> On whilst highest zone is below 30</p>";
 				return description;
+
 			}, 'boolean', true, null, 'Core', [1, 2]);
 		createSetting('downloadSaves',
 			function () { return ('Download Saves') },
 			function () { return ('Will automatically download saves when the script portals.') },
 			'boolean', false, null, 'Core', [1, 2]);
+
+		createSetting('autoGoldenSettings',
+			function () { return ('Golden Upgrade Settings') },
+			function () {
+				let description = "<p>Here you can select the golden upgrades you would like to have purchased during your runs.</p>";
+				description += "<p><b>Click to adjust settings.</b></p>";
+				description += "<p>If needed, the <b>Help</b> button at the bottom left of the popup window has information for all of the inputs.</p>";
+				return description;
+			}, 'mazArray', [], 'importExportTooltip("mapSettings", "Auto Golden")', 'Core', [1, 2],
+			function () { return (getAchievementStrengthLevel() > 0) });
+			
 		createSetting('portalVoidIncrement',
 			function () { return ('Void Map Liquification') },
 			function () {
@@ -190,7 +202,6 @@ function initialiseAllSettings() {
 				return description;
 			}, 'boolean', false, null, 'Core', [1, 2],
 			function () { return (game.permaBoneBonuses.voidMaps.owned >= 5 && checkLiqZoneCount(1) >= 20) });
-
 
 		createSetting('pauseScript',
 			function () { return ('Pause AutoTrimps') },
@@ -1455,7 +1466,6 @@ function initialiseAllSettings() {
 				let description = "<p>Will farm until you can survive this amount of attacks.</p>";
 				description += "<p>Uses the <b>Map Cap</b> and <b>Job Ratio</b> inputs that have been set in the top row of the <b>HD Farm</b> setting. If they haven't been setup then it will default to a job ratio of <b>1/1/2</b> and a map cap of <b>100</b>.</p>";
 				description += "<p>Set to <b>0 or below</b> to disable this setting.</p>";
-				description += "<p>If you have farmed and your Hits Survived value drops below 80% of this setting then it will farm again.</p>";
 				description += "<p>Your Hits Survived can be seen in either the <b>Auto Maps status tooltip</b> or the AutoTrimp settings <b>Help</b> tab.</p>";
 				description += "<p><b>Recommended:</b> 1.5</p>";
 				if (currSettingUniverse === 2) description += "<p>Don't set this above 1 when using <b>Auto Equality: Advanced</b> as it can cause you to eternally farm.</p>";
@@ -1473,8 +1483,9 @@ function initialiseAllSettings() {
 		createSetting('hitsSurvivedReset',
 			function () { return ('Hits Survived Reset') },
 			function () {
-				let description = "<p>When <b>Hits Survived</b> farming this will restart farming when you reach your <b>Map Cap</b> value if you're below 80% of the targetted value in the <b>Hits Survived</b> setting.</p>";
-				description += "<p>Will allow you to farm multiple times if enemies scale or your army gets weaker so can be beneficial in certain challenges.</p>";
+				let description = "<p>When using the standalone <b>Hits Survived</b> setting and you reach your <b>Map Cap</b> value this will restart farming if you're below 80% of the targetted value.</p>";
+				description += "<p>Will allow you to farm multiple times if enemies damage increase or your army gets weaker through challenge buffs or debuffs.</p>";
+				description += "<p>Enabling this setting makes the Map Cap input in the <b>HD Farm</b> setting almost irrelevant as it will continually restart the farm.</p>";
 				description += "<p><b>Recommended:</b> On</p>";
 				return description;
 			}, 'boolean', true, null, 'Maps', [1, 2]);
@@ -3780,18 +3791,6 @@ function initialiseAllSettings() {
 				return (getPageSetting('heirloomAuto', currSettingUniverse) && getPageSetting('heirloomAutoCore', currSettingUniverse) && heirloomType.indexOf(getPageSetting('heirloomAutoRareToKeepCore', currSettingUniverse)) >= 5)});
 	}
 	
-	const displayGolden = true;
-	if (displayGolden) {
-		createSetting('autoGoldenSettings',
-			function () { return ('Auto Gold Settings') },
-			function () {
-				let description = "<p>Here you can select the golden upgrades you would like to have purchased during your runs.</p>";
-				description += "<p><b>Click to adjust settings.</b></p>";
-				description += "<p>If needed, the <b>Help</b> button at the bottom left of the popup window has information for all of the inputs.</p>";
-				return description;
-			}, 'mazArray', [], 'importExportTooltip("mapSettings", "Auto Golden")', 'Golden', [1, 2]);
-	}
-	
 	const displaySpire = true;
 	if (displaySpire) {
 		createSetting('IgnoreSpiresUntil',
@@ -4229,6 +4228,14 @@ function initialiseAllSettings() {
 				description = `<p>${enemyType} enemies won't have a fast icon as those enemies are always fast.</p>`;
 				return description;
 			}, 'boolean', false, null, 'Display', [0]);
+
+		createSetting('displayPercentHealth',
+			function () { return ('Percent Health') },
+			function () {
+				let description = "<p>Modifies the trimp and enemy health bars to display health as a percentage instead of their health values.</p>";
+				return description;
+			}, 'boolean', false, null, 'Display', [0]);
+
 		/* createSetting('displayHeHr',
 			function () { return (_getPrimaryResourceInfo().name + ' Per Hour Status') },
 			function () {
@@ -4407,6 +4414,15 @@ function initialiseAllSettings() {
 				preset3: {},
 			}), null, 'Import Export', [2],
 			function () { return false });
+
+		createSetting('profilesSettings',
+			function () { return ('Profile Settings') },
+			function () {
+				let description = "<p>Here you can save and load different AutoTrimps setting profiles.</p>";
+				description += "<p><b>Click to adjust settings.</b></p>";
+				description += "<p>If needed, the <b>Help</b> button at the bottom left of the popup window has information for all of the inputs.</p>";
+				return description;
+			}, 'mazArray', [], 'importExportTooltip("mapSettings", "Profiles")', 'Import Export', [0]);
 	}
 	
 	const displayHelp = true;
@@ -4449,6 +4465,14 @@ function initialiseAllSettings() {
 				let description = "<p>Will display the order that your current settings run if you have the <b>Auto Maps Priority</b> setting enabled.</p>";
 				return description;
 			}, 'action', null, 'importExportTooltip("priorityOrder")', 'Help', [0]);
+
+		createSetting('helpDonate',
+			function () { return ('Donate') },
+			function () {
+				let description = "<p>If you'd like to donate to AutoTrimps development, you can by clicking this button and following the buymeacoffee link.</p>";
+				description += "<p>If you want to contribute but can't afford a donation, you can still give back by joining the community and sharing your feedback or helping others. Thank you either way, you're awesome!</p>";
+				return description;
+			}, 'action', null, 'importExportTooltip("donate")', 'Help', [0]);
 		/* createSetting('helpFragments',
 			function () { return ('Fragment Decisions') },
 			function () {
@@ -4730,7 +4754,8 @@ function settingChanged(id, currUniverse) {
 		timeWarpDisplay: _setTimeWarpUI,
 		displayEnhancedGrid: MODULES.fightinfo.Update,
 		archaeology: archaeologyAutomator,
-		autoEggs: easterEggClicked
+		autoEggs: easterEggClicked,
+		displayPercentHealth: togglePercentHealth
 	};
 
 	const multitoggleActions = {
@@ -4941,7 +4966,7 @@ function autoToggle(what) {
 function updateAutoTrimpSettings(forceUpdate) {
 	currSettingUniverse = autoTrimpSettings.universeSetting.value + 1;
 
-	for (let setting in autoTrimpSettings) {
+	for (const setting in autoTrimpSettings) {
 		if (['ATversion', 'ATversionChangelog'].includes(setting)) continue;
 
 		const item = autoTrimpSettings[setting];
@@ -4986,7 +5011,7 @@ function _toggleElem(elementId, isVisible) {
 }
 
 function _setDisplayedSettings(item) {
-	let elem = document.getElementById(item.id);
+	const elem = document.getElementById(item.id);
 	if (!elem) return false;
 
 	const settingUniverse = item.universe;
@@ -5028,8 +5053,8 @@ function _setDisplayedSettings(item) {
 		const itemSelected = item['selected' + radonSetting];
 		elem.innerHTML = '';
 		const listItems = item.list();
-		for (let dropdown in listItems) {
-			let option = document.createElement('option');
+		for (const dropdown in listItems) {
+			const option = document.createElement('option');
 			option.value = listItems[dropdown];
 			option.text = listItems[dropdown];
 			elem.appendChild(option);
@@ -5084,14 +5109,13 @@ function _setDisplayedTabs() {
 		tabFluffy: radonOn || (!displayAllSettings && game.global.spiresCompleted < 2),
 		tabJobs: radonOn || (!displayAllSettings && hze < 70),
 		tabHeirloom: game.global.totalPortals === 0,
-		tabGolden: getAchievementStrengthLevel() === 0,
 		tabMagma: radonOn || (!displayAllSettings && hze < 230),
 		tabNature: radonOn || (!displayAllSettings && hze < 236),
 		tabSpire: radonOn || (!displayAllSettings && hze < 190),
 		tabTest: !gameUserCheck()
 	};
 
-	for (let tab in tabList) {
+	for (const tab in tabList) {
 		const tabElem = document.getElementById(tab);
 		const hideTab = tabList[tab];
 		if (tabElem !== null) {
@@ -5144,9 +5168,10 @@ function _settingsToLineBreak() {
 	const breakAfterMagma = ['autoGenModeC2', 'magmiteMinimize'];
 	const breakAfterNature = ['autoIce', 'autoenlight', 'iceEnlight', 'iceEnlightDaily'];
 	const breakAfterDisplay = ['EnableAFK', 'shieldGymMostEfficientDisplay'];
+	const breakAfterImportExport = ['mutatorPresets'];
 	const breakAfterTest = ['testTotalEquipmentCost'];
 
-	const breakAfterIDs = [...breakAfterCore, ...breakAfterMaps, ...breakAfterDaily, ...breakAfterEquipment, ...breakAfterCombat, ...breakAfterJobs, ...breakAfterC2, ...breakAfterBuildings, ...breakAfterChallenges, ...breakAfterHeirlooms, ...breakAfterMagma, ...breakAfterNature, ...breakAfterDisplay, ...breakAfterTest];
+	const breakAfterIDs = [...breakAfterCore, ...breakAfterMaps, ...breakAfterDaily, ...breakAfterEquipment, ...breakAfterCombat, ...breakAfterJobs, ...breakAfterC2, ...breakAfterBuildings, ...breakAfterChallenges, ...breakAfterHeirlooms, ...breakAfterMagma, ...breakAfterNature, ...breakAfterDisplay, ...breakAfterImportExport, ...breakAfterTest];
 
 	const breakAfterHeirloomIDs = ['heirloomAutoModTarget', 'heirloomAutoShieldMod7', 'heirloomAutoStaffMod7'];
 
@@ -5192,7 +5217,7 @@ function _setFightButtons(setting = getPageSetting('displayHideAutoButtons')) {
 }
 
 function _setAttributes(element, attributes) {
-	for (let attr in attributes) {
+	for (const attr in attributes) {
 		element.setAttribute(attr, attributes[attr]);
 	}
 }
@@ -5305,7 +5330,7 @@ function _createChangelogButton() {
 		['AT v' + versionNumber + (newChanges ? " | What's New" : '')]
 	);
 
-	let settingbarRow = document.getElementById('settingsTable').firstElementChild.firstElementChild;
+	const settingbarRow = document.getElementById('settingsTable').firstElementChild.firstElementChild;
 	settingbarRow.insertBefore(changelog, settingbarRow.childNodes[settingbarRow.childNodes.length - 4]);
 }
 
@@ -5322,7 +5347,7 @@ function _createAutoTrimpsButton() {
 		['AutoTrimps']
 	);
 
-	let settingbarRow = document.getElementById('settingsTable').firstElementChild.firstElementChild;
+	const settingbarRow = document.getElementById('settingsTable').firstElementChild.firstElementChild;
 	settingbarRow.insertBefore(atSettings, settingbarRow.childNodes[10]);
 }
 
@@ -5443,14 +5468,14 @@ function _createAutoEquipButton() {
 function _createMessagesButton() {
 	if (document.getElementById('AutoTrimpsFilter') !== null) return;
 
-	let atBtnContainer = _createElement('DIV', {
+	const atBtnContainer = _createElement('DIV', {
 		class: 'btn-group',
 		role: 'group',
 		onmouseover: 'tooltip("Toggle AutoTrimps Messages", "customText", event, `This will control the visibility of AutoTrimps messages in the log window based on your settings.<br>Note: Only map-related messages will be displayed during Time Warp.`)',
 		onmouseout: 'tooltip("hide")'
 	});
 	const btnDisplay = `btn-${getPageSetting('spamMessages').show ? 'success' : 'danger'}`;
-	let atBtnText = _createElement(
+	const atBtnText = _createElement(
 		'button',
 		{
 			id: 'AutoTrimpsFilter',
@@ -5498,10 +5523,10 @@ function _setTimeWarpUI() {
 function _createSettingsRowTW() {
 	if (document.getElementById('settingsRowTW') !== null) return;
 
-	let settingBarRow = document.createElement('DIV');
+	const settingBarRow = document.createElement('DIV');
 	settingBarRow.setAttribute('id', 'settingsRowTW');
 	document.getElementById('offlineWrapper').children[0].insertAdjacentHTML('afterend', '<br>');
-	let offlineWrapperParent = document.getElementById('offlineInnerWrapper').parentNode;
+	const offlineWrapperParent = document.getElementById('offlineInnerWrapper').parentNode;
 	offlineWrapperParent.replaceChild(settingBarRow, document.getElementById('offlineInnerWrapper').parentNode.children[1]);
 }
 
@@ -5512,7 +5537,7 @@ function _createBtnRowTW() {
 	settingsRow.setAttribute('style', 'display: block');
 
 	document.getElementById('offlineInnerWrapper').children[3].insertAdjacentHTML('afterend', '<br>');
-	let offlineProgressParent = document.getElementById('offlineProgressWrapper').parentNode;
+	const offlineProgressParent = document.getElementById('offlineProgressWrapper').parentNode;
 	offlineProgressParent.replaceChild(settingsRow, document.getElementById('offlineProgressWrapper').parentNode.children[4]);
 }
 
@@ -5597,7 +5622,7 @@ function _setAutoJobsClasses() {
 	const btnVal = getPageSetting('jobType');
 	const btnName = autoTrimpSettings['jobType'].name()[btnVal];
 	['jobType', 'autoJobsLabel', 'autoJobsLabelTW'].forEach(function (elemId) {
-		let elem = document.getElementById(elemId);
+		const elem = document.getElementById(elemId);
 		if (elem !== null) {
 			elem.parentNode.setAttribute('class', `toggleConfigBtn noselect pointer settingBtn${btnVal === 2 ? 3 : btnVal}`);
 			if (elemId === 'jobType') {
