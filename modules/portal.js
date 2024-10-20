@@ -1,20 +1,3 @@
-MODULES.portal = {
-	timeout: 4000,
-	bufferExceedFactor: 5,
-	heHrTimeout: null,
-	portalForVoid: false,
-	C2afterVoids: false,
-	C2afterPoisonVoids: false,
-	portalUniverse: Infinity,
-	forcePortal: false,
-	currentChallenge: 'None',
-	dontPushData: false,
-	dailyMods: '',
-	dailyPercent: 0,
-	zonePostpone: 0,
-	disableAutoRespec: 0
-};
-
 function autoPortalCheck(specificPortalZone) {
 	decayFinishChallenge();
 	quagmireFinishChallenge();
@@ -29,6 +12,7 @@ function autoPortal(specificPortalZone, universe, skipDaily) {
 	if (MODULES.portal.portalForVoid && !game.options.menu.liquification.enabled) toggleSetting('liquification');
 	if (!game.global.portalActive) return;
 
+	if (MODULES.portal.portalUniverse === null || isNaN(MODULES.portal.portalUniverse)) MODULES.portal.portalUniverse = game.global.universe;
 	universe = universe || (MODULES.portal.portalUniverse !== Infinity ? MODULES.portal.portalUniverse : game.global.universe);
 	const runningDaily = challengeActive('Daily');
 	if (!shouldPortal(runningDaily, universe)) return;
@@ -102,15 +86,15 @@ function handleHeHrSettings(runningDaily, universe, challengeSelected, skipDaily
 	let heliumHrBuffer = Math.abs(getPageSetting(prefix + 'HrBuffer', universe));
 	let OKtoPortal = false;
 
-	if (!atSettings.portal.aWholeNewWorld) heliumHrBuffer *= MODULES.portal.bufferExceedFactor;
+	if (!atConfig.portal.aWholeNewWorld) heliumHrBuffer *= MODULES.portal.bufferExceedFactor;
 	const bufferExceeded = myHeliumHr < bestHeHr * (1 - heliumHrBuffer / 100);
 
 	if (bufferExceeded && game.global.world >= minZone) {
 		OKtoPortal = true;
-		if (atSettings.portal.aWholeNewWorld) MODULES.portal.zonePostpone = 0;
+		if (atConfig.portal.aWholeNewWorld) MODULES.portal.zonePostpone = 0;
 	}
 
-	if (heliumHrBuffer === 0 && !atSettings.portal.aWholeNewWorld) {
+	if (heliumHrBuffer === 0 && !atConfig.portal.aWholeNewWorld) {
 		OKtoPortal = false;
 	}
 
@@ -261,6 +245,7 @@ function doPortal(challenge, skipDaily) {
 	}
 
 	while (MODULES.portal.portalUniverse !== Infinity) {
+		if (MODULES.portal.portalUniverse === null || isNaN(MODULES.portal.portalUniverse)) MODULES.portal.portalUniverse = game.global.universe;
 		swapPortalUniverse();
 		if (portalUniverse === MODULES.portal.portalUniverse) {
 			MODULES.portal.portalUniverse = Infinity;
@@ -561,7 +546,7 @@ function portalPerkCalc() {
 		}
 	}
 
-	if (typeof MODULES.autoPerks !== 'undefined' && getPageSetting('autoPerks', portalUniverse)) {
+	if (typeof atData.autoPerks !== 'undefined' && getPageSetting('autoPerks', portalUniverse)) {
 		if (portalUniverse === 1) allocatePerky();
 		if (portalUniverse === 2) runSurky();
 	}
@@ -661,15 +646,29 @@ function finishChallengeSquared(onlyDebug) {
 
 function resetVarsZone(loadingSave) {
 	if (loadingSave) {
-		atSettings.portal.currentworld = 0;
-		atSettings.portal.lastrunworld = 0;
-		atSettings.portal.aWholeNewWorld = false;
-
-		atSettings.portal.currentHZE = 0;
-		atSettings.portal.lastHZE = 0;
-
-		MODULES.fightinfo.lastProcessedWorld = 0;
+		/* maps */
+		MODULES.maps.lastMapWeWereIn = { id: 0 };
+		MODULES.maps.mapTimer = 0;
+		MODULES.maps.fragmentFarming = false;
+		MODULES.maps.lifeActive = false;
+		MODULES.maps.lifeCell = 0;
+		MODULES.maps.slowScumming = false;
+		/* mapFunctions */
 		MODULES.mapFunctions.afterVoids = false;
+		MODULES.mapFunctions.isHealthFarming = '';
+		MODULES.mapFunctions.hasHealthFarmed = '';
+		MODULES.mapFunctions.hasVoidFarmed = '';
+		MODULES.mapFunctions.hypoPackrat = false;
+		MODULES.mapFunctions.desoGearScum = false;
+
+		atConfig.portal.currentworld = 0;
+		atConfig.portal.lastrunworld = 0;
+		atConfig.portal.aWholeNewWorld = false;
+
+		atConfig.portal.currentHZE = 0;
+		atConfig.portal.lastHZE = 0;
+
+		atData.fightInfo.lastProcessedWorld = 0;
 		MODULES.portal.C2afterVoids = false;
 		MODULES.portal.C2afterPoisonVoids = false;
 
@@ -681,24 +680,46 @@ function resetVarsZone(loadingSave) {
 		MODULES.portal.zonePostpone = 0;
 		MODULES.portal.forcePortal = false;
 		MODULES.portal.portalForVoid = false;
+
+		MODULES.popups.challenge = false;
+		MODULES.popups.respecAncientTreasure = false;
+		MODULES.popups.remainingTime = Infinity;
+		MODULES.popups.intervalID = null;
+		MODULES.popups.portal = false;
+		MODULES.popups.mazWindowOpen = false;
 		clearTimeout(MODULES.portal.heHrTimeout);
 
 		hideAutomationButtons();
 	}
 
+	const mapItems = {};
+
+	/* maps */
+	MODULES.maps.mapRepeats = 0;
+	MODULES.maps.mapRepeatsSmithy = [0, 0, 0];
+	MODULES.maps.fragmentCost = Infinity;
+
+	/* mapFunctions */
+	const mapFunctionItems = {};
+
+	MODULES.mapFunctions.runUniqueMap = '';
+	MODULES.mapFunctions.questRun = false;
+
+	const popups = {
+		challenge: false,
+		respecAncientTreasure: false,
+		remainingTime: Infinity,
+		intervalID: null,
+		portal: false,
+		mazWindowOpen: false
+	};
+
 	delete mapSettings.voidHDIndex;
 	MODULES.heirlooms.plagueSwap = false;
 	MODULES.heirlooms.compressedCalc = false;
 	//General
-	MODULES.maps.mapTimer = 0;
-	MODULES.maps.fragmentCost = Infinity;
-	//Auto Level variables
-	MODULES.maps.mapRepeats = 0;
 	mapSettings.levelCheck = Infinity;
 	//Challenge Repeat
-	MODULES.mapFunctions.challengeContinueRunning = false;
-	MODULES.mapFunctions.runUniqueMap = '';
-	MODULES.mapFunctions.questRun = false;
 	trimpStats = new TrimpStats();
 	hdStats = new HDStats();
 
@@ -756,12 +777,12 @@ function atlantrimpRespecMessage(cellOverride) {
 	if (!game.global.canRespecPerks) return;
 	//Stop this from running if we're in U1 and not at the highest Spire reached.
 	if (game.global.universe === 1 && (!game.global.spireActive || game.global.world < Math.floor((getHighestLevelCleared() + 1) / 100) * 100)) return;
-	if (typeof MODULES.autoPerks === 'undefined') return;
+	if (typeof atData.autoPerks === 'undefined') return;
 
 	//Stop it running if we aren't above the necessary cell for u1.
 	if (!cellOverride) {
 		//If we have just toggled the setting, wait 5 seconds before running this.
-		if (settingChangedTimeout) return;
+		if (atConfig.settingChangedTimeout) return;
 		//Disable this from running if we have already disabled it this portal.
 		//This variable is reset when changing the "presetCombatRespecCell" settings input.
 		if (MODULES.portal.disableAutoRespec === getTotalPortals()) return;

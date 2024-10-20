@@ -155,15 +155,15 @@ function _getPortalAfterVoidSetting() {
 }
 
 function _getPrimaryResourceInfo() {
-	return currSettingUniverse === 2 ? { name: 'Radon', abv: 'Rn' } : { name: 'Helium', abv: 'He' };
+	return atConfig.settingUniverse === 2 ? { name: 'Radon', abv: 'Rn' } : { name: 'Helium', abv: 'He' };
 }
 
 function _getChallenge2Info() {
-	return currSettingUniverse === 2 ? 'C3' : 'C2';
+	return atConfig.settingUniverse === 2 ? 'C3' : 'C2';
 }
 
 function _getSpecialChallengeDescription() {
-	return `${_getChallenge2Info()}'s or special challenge (${currSettingUniverse === 2 ? 'Mayhem, Pandemonium, Desolation' : 'Frigid, Experience'})`;
+	return `${_getChallenge2Info()}'s or special challenge (${atConfig.settingUniverse === 2 ? 'Mayhem, Pandemonium, Desolation' : 'Frigid, Experience'})`;
 }
 
 function prestigesToGet(targetZone = game.global.world, targetPrestige = 'GambesOP') {
@@ -263,7 +263,7 @@ function _checkFastEnemyU2(enemy) {
 	if (challengeActive('Smithless') && enemy.ubersmith) return true;
 	if (challengeActive('Desolation') && mapping) {
 		// Exotic mapimps in deso are bugged and slow
-		const exoticImp = MODULES.fightinfo.exoticImps.includes(enemy.name);
+		const exoticImp = atData.fightInfo.exoticImps.includes(enemy.name);
 		return !exoticImp;
 	}
 
@@ -283,7 +283,7 @@ function checkFastEnemy(enemy = getCurrentEnemy()) {
 
 	if (game.global.voidBuff === 'doubleAttack') return true;
 
-	const fastImp = MODULES.fightinfo.fastImps.includes(enemy.name);
+	const fastImp = atData.fightInfo.fastImps.includes(enemy.name);
 	if (fastImp) return true;
 
 	if (game.global.universe === 2) {
