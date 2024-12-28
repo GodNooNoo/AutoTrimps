@@ -73,20 +73,22 @@ function _isTrappingOK(Battle, Coordination, maxTrimps = game.resources.trimps.r
 	if (!trapChallenge) return baseCheck;
 
 	// Identify if we should disable trapping when running Trappa/Trapper.
-	const trapSettingsEnabled = getPageSetting('trapper') && !getPageSetting('trapperTrap');
+	const trapSettingsEnabled = getPageSetting('trapper') && getPageSetting('trapperTrap');
 	if (!trapSettingsEnabled) return true;
 
 	const trappaCoordToggle = getPageSetting('trapperCoordStyle');
-	const coordinated = getPerkLevel('Coordinated');
 
 	let targetArmySize = game.resources.trimps.getCurrentSend();
 	const remainingTrimps = game.resources.trimps.owned - game.resources.trimps.employed;
+	const coordinated = getPerkLevel('Coordinated');
+	const coordinatedMult = coordinated > 0 ? 0.25 * Math.pow(game.portal.Coordinated.modifier, coordinated) + 1 : 1;
+
 	let trappaCheck;
 	let maxCheck;
 	if (trappaCoordToggle === 0) {
 		const trapperCoords = getPageSetting('trapperCoords');
-		const coordinatedMult = coordinated > 0 ? 0.25 * Math.pow(game.portal.Coordinated.modifier, coordinated) + 1 : 1;
 		let coordTarget = trapperCoords > 0 ? trapperCoords - 1 : 999;
+
 		if (!game.global.runningChallengeSquared && coordTarget === 999) coordTarget = trimpStats.currChallenge === 'Trapper' ? 32 : 49;
 		if (Coordination.done >= coordTarget) {
 			for (let z = Coordination.done; z < coordTarget; ++z) {
@@ -98,10 +100,15 @@ function _isTrappingOK(Battle, Coordination, maxTrimps = game.resources.trimps.r
 
 	if (trappaCoordToggle === 1) {
 		const armySize = getPageSetting('trapperArmySize');
-		if (armySize > 0) targetArmySize = armySize;
+		if (armySize > 0) {
+			targetArmySize = armySize;
+		} else {
+			targetArmySize = Math.ceil(1.25 * targetArmySize);
+			targetArmySize = Math.ceil(targetArmySize * coordinatedMult);
+		}
 	}
 
-	trappaCheck = challengeActive('Trappapalooza') && game.global.fighting && game.resources.trimps.maxSoldiers + remainingTrimps >= targetArmySize;
+	trappaCheck = game.global.fighting && game.resources.trimps.maxSoldiers + remainingTrimps >= targetArmySize;
 	maxCheck = remainingTrimps > targetArmySize;
 	if (trappaCheck || maxCheck) return false;
 
@@ -256,7 +263,9 @@ function _gatherTrapResources() {
 }
 
 function _handleTrapping(action, priority) {
-	const trapsToBuy = bwRewardUnlocked('DecaBuild') ? 10 : bwRewardUnlocked('DoubleBuild') ? 2 : 1;
+	let trapsToBuy = bwRewardUnlocked('DecaBuild') ? 10 : bwRewardUnlocked('DoubleBuild') ? 2 : 1;
+	trapsToBuy = Math.max(1, calculateMaxAfford_AT(game.buildings.Trap, true, false, false, trapsToBuy, 0.01));
+
 	const buyTrap = () => canAffordBuilding('Trap', false, false, false, false, 1) && (safeBuyBuilding('Trap', trapsToBuy) || true);
 	const canBuild = () => isBuildingInQueue('Trap') || buyTrap();
 	const bait = () => safeSetGather('trimps') || true;

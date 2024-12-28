@@ -8,13 +8,14 @@
 		lastProcessedWorld: null,
 		lastProcessedMap: null,
 		imp: {
-			skel: { icon: '"glyphicon glyphicon-italic"', shadow: '0px 0px 10px #ffffff', color: '#ffffff' },
+			skel: { name: 'Skeletimp', icon: '"glyphicon glyphicon-italic"', shadow: '0px 0px 10px #ffffff', color: '#ffffff' },
 			exotic: { icon: '"glyphicon glyphicon-sunglasses"', shadow: '0px 0px 10px #fb753f', color: '#ff0000' },
 			powerful: { icon: '"glyphicon glyphicon-fire"', shadow: '0px 0px 10px #ff0c55', color: '#ff0c55' },
 			fast: { icon: '"glyphicon glyphicon-forward"', shadow: '0px 0px 10px #ffffff', color: '#000000' },
 			poison: { icon: '"glyphicon glyphicon-flask"', shadow: '0px 0px 10px #ffffff', color: '#00ff00' },
 			wind: { icon: '"icomoon icon-air"', shadow: '0px 0px 10px #ffffff', color: '#99ffff' },
-			ice: { icon: '"glyphicon glyphicon-certificate"', shadow: '0px 0px 10px #ffffff', color: '#00ffff' }
+			ice: { icon: '"glyphicon glyphicon-certificate"', shadow: '0px 0px 10px #ffffff', color: '#00ffff' },
+			turkimp: { name: 'Turkimp', icon: '"icomoon icon-spoon-knife"' }
 		},
 		powerful: {
 			blimp: { name: 'Blimp', icon: '"glyphicon glyphicon-plane"' },
@@ -116,6 +117,10 @@
 
 		if (cellName.includes('skele')) {
 			special = M.fightInfo.imp.skel;
+			specialIcon = M.fightInfo.imp.skel;
+		} else if (cellName.includes('turkimp') && !game.talents.turkimp2.purchased) {
+			special = M.fightInfo.imp.exotic;
+			specialIcon = M.fightInfo.imp[cellName];
 		} else if (cellName in M['fightInfo'].exotics) {
 			special = M.fightInfo.imp.exotic;
 			specialIcon = M.fightInfo.allExoticIcons ? M.fightInfo.exotics[cellName] : null;

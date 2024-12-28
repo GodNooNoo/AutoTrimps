@@ -148,12 +148,252 @@
 					document.getElementById('linksRow').style.display = 'none';
 					document.getElementById('desktopLinksRow').style.display = 'table-row';
 				}
+
 				function nwOpen(link) {
 					const gui = require('nw.gui');
 					gui.Shell.openExternal(link);
 				}
 			</script>
+
 			<div style="font-size: 1.3em; font-weight: bold; display: block; width: 100%; text-align: center">AutoTrimps Updates!</div>
+
+			<!-- 6.6.10-->
+			<ul class="betterList">
+				<li>6.6.10 - 27/12/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>Added an Auto Portal Timeout setting to the Core tab to delay Auto Portal being run for 5 seconds after changing any of the Auto Portal settings.</li>
+					<li>Moved the specific challenges in the Auto Portal dropdown to a new Helium/Radon Challenges setting.</li>
+				</ul>
+				<ul>
+					<li>Bugfixes</li>
+					<li class="second-child">General</li>
+					<li>Fixed several Auto Portal and Force Auto Portal related bugs.</li>
+					<li class="second-child">Universe 1</li>
+					<li>Fixed an issue causing Hits Survived values to be Infinity when your stats were too high.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.6.09-->
+			<ul class="betterList">
+				<li>6.6.09 - 20/12/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>Added a new setting to the Maps tab (Map Bonus Level Prestiges) that is unlocked when plus levels or Siphonology has been unlocked.</li>
+				</ul>
+				<ul>
+					<li>Bugfixes</li>
+					<li class="second-child">General</li>
+					<li>Improved how Auto Equip handles prestiges being available.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.6.08-->
+			<ul class="betterList">
+				<li>6.6.08 - 18/12/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>Perky & Surky.</li>
+					<li class="square">Added a button to enable input fields being updated.</li>
+					<li>The AE: HD Cut-off & AE: HS Cut-off settings both now get disabled when set to 0 or below.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.6.07-->
+			<ul class="betterList">
+				<li>6.6.07 - 16/12/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>Perky & Surky.</li>
+					<li class="square">Changed the layout of the calculators inputs.</li>
+					<li class="square">Added a tooltip when allocating the Spire Respec preset to indicate that it's to be used after farming.</li>
+					<li class="square">Challenges that have yet to be unlocked will no longer be visible in the Preset list. They will appear but be uninteractable when the game shows them in the Portal screen and become usable when they have been unlocked.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.6.06-->
+			<ul class="betterList">
+				<li>6.6.06 - 08/12/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>When the breed heirloom setting is set then shields with that name will only upgrade breed speed.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.6.05-->
+			<ul class="betterList">
+				<li>6.6.05 - 08/12/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>The C2 Table button now has an additional column for challenges that meet the criteria to be run by C2 Runner when Auto Portaling.</li>
+					<li>C2 Runner won't run challenges if your C2 Runner: End Zone setting is at or below a challenges current highest zone.</li>
+					<li>Added a button to access the Auto Level table in the Help tab.</li>
+					<li class="second-child">Universe 2</li>
+					<li>Heirloom calc will now spend on breed speed when in U2, efficiency of it is reduced by 90% compared to U1.</li>
+				</ul>
+				<ul>
+					<li>Bugfixes</li>
+					<li class="second-child">General</li>
+					<li>Fixed an issue that caused some auto level loot calculation issues when using Garden maps.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.6.04-->
+			<ul class="betterList">
+				<li>6.6.04 - 02/12/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>Added the ability to control click the heirloom calc resource efficiency buttons to allow for spending percentage adjustments.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.6.03-->
+			<ul class="betterList">
+				<li>6.6.03 - 27/11/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>Added new options to heirloom calc to allow customization of resource efficiencies that are calculated.</li>
+					<li class="square">The scripts settings that forced an efficiency type to be purchased no longer do that and you'll need to toggle the efficiencies yourself.</li>
+					<li class="square">Due to the above, the Auto Allocate Heirlooms setting has been disabled and will need to be enabled again if you were previously using it.</li>
+					<li>Added a new button to the top of the heirlooms window to toggle the Auto Heirlooms setting.</li>
+				</ul>
+				<ul>
+					<li>Bugfixes</li>
+					<li class="second-child">General</li>
+					<li>Fixed an issue that stopped the heirloom window being updated properly when Heirloom Swapping swapped an heirloom.</li>
+					<li>Fixed issues with Duel, Trapper/Trappa, and Wither shields not always being used during their challenges.</li>
+					<li class="second-child">Universe 2</li>
+					<li>Fixed an auto equality issue when running dailies with the explosive modifier.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.6.02-->
+			<ul class="betterList">
+				<li>6.6.02 - 25/11/24</li>
+				<ul>
+					<li>Bugfixes</li>
+					<li class="second-child">Universe 1</li>
+					<li>Fixed an issue that stopped HD Ratio & Hits Survived farms from using the recommended auto level speed stance when the HS/HD Map Bonus Type setting was enabled.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.6.01-->
+			<ul class="betterList">
+				<li>6.6.01 - 23/11/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>The Void Map Liquification setting has been made into a multitoggle setting instead and now has the option to portal for just a respec as well.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.6.00-->
+			<ul class="betterList">
+				<li>6.6.00 - 19/11/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>Settings should now have a scaling font size depending on length so they should no longer increase in height if the input is too long. Please let me know if you experience any that still do!</li>
+					<li>Changed a ton of tooltips name and descriptions to be clearer.</li>
+					<li>Added an "AT" prefix to the scripts settings in the games buy window to make it clearer that they're seperate from the ingame settings.</li>
+					<li>Added an additional option to the Daily Portal setting to abandon at a certain zone.</li>
+					<li class="second-child">Universe 1</li>
+					<li>There's a chance I've broken some Scryer setting functionality so please inform me if you have issues.</li>
+					<li>Added a new scryer stance setting to allow you to force scryer stance against non-corrupted world enemies.</li>
+					<li>Removed the following scryer stance settings: Use When Overkill, Void Maps, Plus Maps, BW, Boss, Scry in Poison/Wind/Ice.</li>
+					<li>Moved the Auto Level Scryer, VM Scryer, and D: VM Scryer settings to the Combat tab.</li>
+					<li>Moved the Daily wind stacking settings to the Combat tab.</li>
+					<li>The Spire tab will now appear from z170 instead of z190.</li>
+				</ul>
+				<ul>
+					<li>Bugfixes</li>
+					<li class="second-child">General</li>
+					<li>Fixed an issue that was causing the Auto Maps, He/Hr, and Ra/Hr status windows from being displayed. These will now display when the options for them in the "Hide Auto Buttons" setting are unchecked.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.5.994-->
+			<ul class="betterList">
+				<li>6.5.994 - 14/11/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>Added info to (hopefully all) tooltips that have daily/c2/c3 versions so that it's clearer they will be used when on those types of challenges. If I've missed any please let me know!</li>
+					<li>Fixed the games tooltip sometimes going off the screen. It should now go to the left or right instead of going off screen.</li>
+					<li>Added an additional option to the Daily Portal setting to abandon at a certain zone.</li>
+					<li class="second-child">Universe 1</li>
+					<li>Moved several c2 and daily Spire settings to the Spire tab.</li>
+					<li>Added c2 and daily versions of the Spire Max Map Bonus, Spire Hits Survived, and Skip Spires settings.</li>
+				</ul>
+				<ul>
+					<li>Bugfixes</li>
+					<li class="second-child">General</li>
+					<li>Fixed an early game Hits Survived calculation issue.</li>
+					<li class="second-child">Universe 2</li>
+					<li>Fixed an auto level calculation issue on the Berserk challenge.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.5.993-->
+			<ul class="betterList">
+				<li>6.5.993 - 10/11/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">Universe 1</li>
+					<li>The Spire exit cell settings now allow an input of 0 so that you can instantly exit Spires.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.5.992-->
+			<ul class="betterList">
+				<li>6.5.992 - 10/11/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>Added new buttons in the Help tab to help understand how the script handles map slider selection & shield+gym related issues.</li>
+					<li>The Auto Level button can now be control clicked to get a table of all the simulations similar to how the (zfarm) website displays it.</li>
+					<li class="second-child">Universe 2</li>
+					<li>Added a new button to the perk calculator (Surky) that will display the recommended golden upgrade path when you allocate perks.</li>
+				</ul>
+				<ul>
+					<li>Bugfixes</li>
+					<li class="second-child">General</li>
+					<li>Fixed an issue with HD Farm/Hits Survived biome selection in the early game.</li>
+					<li>Fixed numerous auto level calculation issues.</li>
+					<li class="second-child">Universe 2</li>
+					<li>Fixed Frozen Castle using the Hypothermia settings zone & cell inputs when the Hypothermia setting was disabled.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.5.991-->
+			<ul class="betterList">
+				<li>6.5.991 - 07/11/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>Changed the Hits Survived Reset setting into a multitoggle so you can reset HD Farm lines with it as well.</li>
+				</ul>
+			</ul>
+
+			<!-- 6.5.99-->
+			<ul class="betterList">
+				<li>6.5.99 - 29/10/24</li>
+				<ul>
+					<li>Changes</li>
+					<li class="second-child">General</li>
+					<li>You can now control click any multitoggle setting to reset it to its default setting.</li>
+					<li class="second-child">Universe 1</li>
+					<li>Added an auto heirlooms setting to allow you to target specific core mod amounts.</li>
+				</ul>
+			</ul>
 
 			<!-- 6.5.98-->
 			<ul class="betterList">
@@ -2510,7 +2750,7 @@
 					<li>Updated Scryer Stance related settings descriptions to match the format of other settings.</li>
 					<li>Updated Windstacking related settings descriptions to match the format of other settings.</li>
 					<li>Added a new setting for windstacking in liquification zones outside of dailies.</li>
-					<li>The windstacking settings are now seperate from the AutoStance setting. If enabled and you aren't windstacking then your stance changing will default to your AutoStance setting.</li>
+					<li>The windstacking settings are now seperate from the Auto Stance setting. If enabled and you aren't windstacking then your stance changing will default to your Auto Stance setting.</li>
 				</ul>
 			</ul>
 
@@ -2529,7 +2769,7 @@
 					<li class="second-child">Universe 1</li>
 					<li>Fixed an issue where the script wasn't properly accounting for average income for gathering/buildings.</li>
 					<li class="second-child">Universe 2</li>
-					<li>Fixed an issue breaking the script during Transmute when using the Manual Ratios job setting.</li>
+					<li>Fixed an issue breaking the script during Transmute when using the Auto Jobs: Manual job setting.</li>
 				</ul>
 			</ul>
 

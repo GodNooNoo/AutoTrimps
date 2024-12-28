@@ -64,11 +64,11 @@ function queryAutoEqualityStats(ourDamage, ourHealth, enemyDmgEquality, enemyHea
 }
 
 function _calcHDRatioDebug(ourBaseDamage, enemyHealth, universeSetting, worldType) {
-	debug(`ourBaseDamage: ${ourBaseDamage}`, `debugStats`);
-	debug(`enemyHealth: ${enemyHealth}`, `debugStats`);
+	debug(`ourBaseDamage: ${prettify(ourBaseDamage)}`, `debugStats`);
+	debug(`enemyHealth: ${prettify(enemyHealth)}`, `debugStats`);
 	debug(`universeSetting: ${universeSetting}`, `debugStats`);
 	debug(`HD type: ${worldType}`, `debugStats`);
-	debug(`HD value (H:D): ${enemyHealth / ourBaseDamage}`, `debugStats`);
+	debug(`HD value (H:D): ${prettify(enemyHealth / ourBaseDamage)}`, `debugStats`);
 }
 
 function _calcHitsSurvivedDebug(targetZone, damageMult, worldDamage, equality, block, pierce, health, hitsToSurvive, finalDmg) {
@@ -154,8 +154,8 @@ function _getPortalAfterVoidSetting() {
 	return true;
 }
 
-function _getPrimaryResourceInfo() {
-	return atConfig.settingUniverse === 2 ? { name: 'Radon', abv: 'Rn' } : { name: 'Helium', abv: 'He' };
+function _getPrimaryResourceInfo(universe = atConfig.settingUniverse) {
+	return universe === 2 ? { name: 'Radon', abv: 'Rn' } : { name: 'Helium', abv: 'He' };
 }
 
 function _getChallenge2Info() {
@@ -320,7 +320,10 @@ function getGameTime() {
 function targetHitsSurvived(skipHDCheck, worldType) {
 	if (!skipHDCheck && mapSettings.mapName === 'Hits Survived') return mapSettings.hdRatio;
 	if (worldType === 'void') return Number(getPageSetting('voidMapSettings')[0].hitsSurvived);
-	if (isDoingSpire()) return getPageSetting('hitsSurvivedSpire');
+	if (isDoingSpire()) {
+		const settingAffix = trimpStats.isC3 ? 'C2' : trimpStats.isDaily ? 'Daily' : '';
+		return getPageSetting('spireHitsSurvived' + settingAffix);
+	}
 	return getPageSetting('hitsSurvived');
 }
 
@@ -338,6 +341,6 @@ function whichAutoLevel() {
 
 function whichScryVoidMaps() {
 	if (!game.talents.scry2.purchased) return false;
-	if (trimpStats.isDaily) return getPageSetting('dscryvoidmaps');
-	return getPageSetting('scryvoidmaps');
+	if (trimpStats.isDaily) return getPageSetting('scryerVoidMapsDaily');
+	return getPageSetting('scryerVoidMaps');
 }

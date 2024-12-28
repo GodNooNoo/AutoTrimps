@@ -9,8 +9,11 @@ function gigaTargetZone() {
 	if (autoTrimpSettings.autoPortal.selected === 'Helium Per Hour') portalZone = trimpStats.isDaily ? getPageSetting('dailyDontPortalBefore', 1) : getPageSetting('heHrDontPortalBefore', 1);
 	else if (autoTrimpSettings.autoPortal.selected === 'Custom') portalZone = trimpStats.isDaily ? getPageSetting('dailyPortalZone') : getPageSetting('autoPortalZone', 1);
 
-	if (!trimpStats.isC3) targetZone = Math.max(targetZone, lastPortalZone, challengeZone, portalZone - 1);
-	else targetZone = Math.max(targetZone, c2zone - 1);
+	if (trimpStats.isC3) {
+		targetZone = Math.max(targetZone, c2zone - 1);
+	} else {
+		targetZone = Math.max(targetZone, lastPortalZone, challengeZone, portalZone - 1);
+	}
 
 	if (trimpStats.isDaily && getPageSetting('autoGenModeDaily') !== 0) targetZone = Math.min(targetZone, 230);
 	if (trimpStats.isC3 && getPageSetting('autoGenModeC2') !== 0) targetZone = Math.min(targetZone, 230);
@@ -34,19 +37,17 @@ function autoGiga(targetZone, metalRatio = 0.5, slowDown = 10, customBase) {
 	const metalPS = trimpStats.resourcesPS['metal'].normal;
 	const megabook = game.global.frugalDone ? 1.6 : 1.5;
 
-	//Calculus
+	/* calculus */
 	const nGigas = Math.min(Math.floor(targetZone - 60), Math.floor(targetZone / 2 - 25), Math.floor(targetZone / 3 - 12), Math.floor(targetZone / 5), Math.floor(targetZone / 10 + 17), 39);
 	const metalDiff = Math.max((0.1 * metalRatio * metalPS) / gemsPS, 1);
 
 	let delta = 3;
 	for (let i = 0; i < 10; i++) {
-		//Population guess
 		let pop = 6 * Math.pow(1.2, nGigas) * 10000;
 		pop *= base * (1 - Math.pow(5 / 6, nGigas + 1)) + delta * (nGigas + 1 - 5 * (1 - Math.pow(5 / 6, nGigas + 1)));
 		pop += rawPop - base * 10000;
 		pop /= rawPop;
 
-		//Delta
 		delta = Math.pow(megabook, targetZone - baseZone);
 		delta *= metalDiff * slowDown * pop;
 		delta /= Math.pow(1.75, nGigas);
@@ -55,31 +56,35 @@ function autoGiga(targetZone, metalRatio = 0.5, slowDown = 10, customBase) {
 		delta /= nGigas;
 	}
 
-	//Returns a number in the x.yy format, and as a number, not a string
+	/* 	returns a number in the x.yy format, and as a number, not a string */
 	return +(Math.round(delta + 'e+2') + 'e-2');
 }
 
 function firstGiga() {
-	//Build our first giga if: A) Has more than 2 Warps & B) Can't afford more Coords & C)* Lacking Health or Damage & D)* Has run at least 1 map stack or if forced to
-	const s = !(getPageSetting('autoGigaDeltaFactor') > 20);
+	/* build our first giga if: 
+		a) has 2 or more Warpstations 
+		b) can't afford more Coords 
+		c) lacking Health or Damage 
+		d) has run at least 1 map stack or if forced to
+	*/
+	const s = getPageSetting('autoGigaDeltaFactor') <= 20;
 	const a = game.buildings.Warpstation.owned >= 2;
 	const b = !canAffordCoordinationTrimps() || game.global.spireActive || (game.global.world >= 230 && !canAffordTwoLevel(game.upgrades.Coordination));
 	const c = s || ['HD Farm', 'Hits Survived'].includes(mapSettings.mapName);
 	const d = s || game.global.mapBonus >= 1;
 	if (!(a && b && c && d)) return false;
 
-	//Define Base and Delta for this run
+	/* define Base and Delta for this run */
 	const base = game.buildings.Warpstation.owned;
 	const deltaZ = getPageSetting('autoGigaTargetZone') >= 60 ? getPageSetting('autoGigaTargetZone') : undefined;
 	const deltaS = getPageSetting('autoGigaDeltaFactor') >= 1 ? getPageSetting('autoGigaDeltaFactor') : undefined;
-	const delta = autoGiga(deltaZ, 0.5, deltaS);
+	const delta = Math.min(Math.max(autoGiga(deltaZ, 0.5, deltaS), 0.01), 100);
 
 	const firstGiga = getPageSetting('firstGigastation');
 	const deltaGiga = getPageSetting('deltaGigastation');
 	if (firstGiga !== base) setPageSetting('firstGigastation', base);
 	if (deltaGiga !== delta) setPageSetting('deltaGigastation', delta);
 
-	//Log
 	if (firstGiga !== base || deltaGiga !== delta) {
 		debug(`Auto Gigastation: Setting pattern to ${base} + ${delta}`, 'buildings', '*rocket');
 	}
@@ -104,12 +109,14 @@ function trapperHoldCoords(jobChange = false) {
 
 	if (trappaCoordToggle === 1) {
 		const armyTarget = getPageSetting('trapperArmySize');
-		const coordinated = getPerkLevel('Coordinated');
-		const coordinatedMult = coordinated > 0 ? 0.25 * Math.pow(game.portal.Coordinated.modifier, coordinated) + 1 : 1;
+
 		return game.resources.trimps.getCurrentSend() * 1.25 > armyTarget;
 	}
 
-	if (jobChange) buyJobs();
+	if (jobChange) {
+		buyJobs();
+	}
+
 	return false;
 }
 
@@ -146,16 +153,15 @@ function sciUpgrades() {
 	addUpgrade('Battle');
 	addUpgrade('Miners');
 
-	//Scientist I - 11500 Science + Scientist II - 8000 Science
+	/* scientist I - 11500 Science + Scientist II - 8000 Science */
 	if (sLevel <= 1) {
 		const coordLevel = sLevel === 0 ? 8 : 7;
 		addUpgrade('Bloodlust');
 		addUpgrade('Coordination', upgrades.Coordination.done <= coordLevel, coordLevel);
 		addUpgrade('Bestplate');
 		addUpgrade('Megamace', sLevel === 0);
-	}
-	//Scientist III + V - 1500 Science.
-	else if (sLevel === 2 || sLevel >= 4) {
+	} else if (sLevel === 2 || sLevel >= 4) {
+		/* scientist III + V - 1500 Science */
 		const coordLevel = 2;
 		addUpgrade('Coordination', upgrades.Coordination.done <= coordLevel, coordLevel);
 		addUpgrade('Speedminer');
@@ -228,8 +234,6 @@ function buyUpgrades() {
 			continue;
 		}
 
-		//TODO Maybe rework this priority system
-		//Prioritise Science/scientist upgrades
 		if (upgrade !== 'Bloodlust' && upgrade !== 'Miners' && upgrade !== 'Scientists' && !atConfig.portal.aWholeNewWorld && !scientistChallenge) {
 			if (needScientists) continue;
 			if (needBounty && upgrade !== 'Bounty') continue;

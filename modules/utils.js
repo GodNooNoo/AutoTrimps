@@ -242,7 +242,7 @@ function testTimeWarp(hours) {
 	const timeWarpHours = _getTimeWarpHours(hours);
 	const timeToRun = timeWarpHours * 3600000;
 
-	const keys = ['lastOnline', 'portalTime', 'zoneStarted', 'lastSoldierSentAt', 'lastSkeletimp', 'lastChargeAt'];
+	const keys = ['lastOnline', 'portalTime', 'zoneStarted', 'lastSoldierSentAt', 'lastSkeletimp', 'lastBonePresimpt', 'lastChargeAt'];
 	_adjustGlobalTimers(keys, -timeToRun);
 	offlineProgress.start();
 }
@@ -778,7 +778,7 @@ function shieldGymEfficiency(hitsBefore = _getTargetWorldType() === 'void' ? hdS
 	const mapObj = game.global.mapsActive && !game.global.voidBuff ? getCurrentMapObject() : { level: game.global.world, location: undefined };
 	const zone = Math.max(game.global.world, mapObj.level);
 	const worldType = mapObj.location === 'Bionic' ? 'map' : _getTargetWorldType();
-	const difficulty = worldType === 'void' ? _getVoidPercent() : mapObj.location === 'Bionic' ? 2.6 : 1;
+	const difficulty = worldType === 'void' ? _getVoidPercent().difficulty : mapObj.location === 'Bionic' ? 2.6 : 1;
 
 	const itemData = game.equipment.Shield;
 	const stat = shieldBlock ? 'block' : 'health';
@@ -850,7 +850,7 @@ function shieldGymEfficiency(hitsBefore = _getTargetWorldType() === 'void' ? hdS
 }
 
 function biomeEfficiency(pretty = false, hitsBefore = _getTargetWorldType() === 'void' ? hdStats.hitsSurvivedVoid : hdStats.hitsSurvived, mostEffEquip = mostEfficientEquipment(undefined, undefined, true), shieldGymEff = shieldGymEfficiency()) {
-	if (game.global.universe !== 1 || game.global.decayDone || shieldGymEff.mostEfficient === 'None') return { biome: 'Mountain' };
+	if (game.global.universe !== 1 || game.global.decayDone || shieldGymEff.mostEfficient === 'None' || mapSettings.mapName === 'HD Farm') return { biome: 'Mountain' };
 
 	const worldType = _getTargetWorldType();
 	let mostEff = mostEffEquip.health.name;
@@ -858,7 +858,7 @@ function biomeEfficiency(pretty = false, hitsBefore = _getTargetWorldType() === 
 	let cost, hsImpact, efficiency;
 
 	if (mostEff) {
-		const difficulty = worldType === 'void' ? _getVoidPercent() : 1;
+		const difficulty = worldType === 'void' ? _getVoidPercent().difficulty : 1;
 		const zoneGo = zoneGoCheck(undefined, 'health', { location: worldType }).active;
 		const resourceSpendingPct = calculateResourceSpendingPct(zoneGo, 'health');
 
@@ -895,15 +895,24 @@ function biomeEfficiency(pretty = false, hitsBefore = _getTargetWorldType() === 
 		hsImpact: maybePrettify(hsImpact, pretty)
 	};
 
-	const hdToTargetRatio = (worldType === 'void' ? hdStats.hdRatioVoid : hdStats.hdRatio) / getPageSetting('mapBonusRatio');
-	const hsToTargetRatio = hitsBefore / targetHitsSurvived(false, worldType);
+	let hdCurrent = worldType === 'void' ? hdStats.hdRatioVoid : hdStats.hdRatio;
+	if (!hdCurrent) {
+		const difficulty = worldType === 'void' ? _getVoidPercent(game.global.world, game.global.universe).difficulty : 1;
+		hdCurrent = calcHDRatio(game.global.world, worldType, false, difficulty);
+	}
+
+	const hdTargetRatio = mapSettings.mapName === 'HD Farm' ? mapSettings.hdRatio : getPageSetting('mapBonusRatio');
+	const hdToTargetRatio = hdCurrent / hdTargetRatio;
+	const hsTargetRatio = targetHitsSurvived(false, worldType);
+	const hsToTargetRatio = hitsBefore / hsTargetRatio;
 
 	// TODO Maybe this value should consider hsToTargetRatio too, and maybe AE: HS and AE: HD too
 	let metalEffRatio = hdToTargetRatio > 1 ? 2.5 : 1;
 
 	// TODO Refactor this after considering the TODOs below
 	if (!metalEquip.name) {
-		if (!mostEffEquip.attack.name) metalEffRatio = 0;
+		if (hsToTargetRatio === Infinity) metalEffRatio = 1; /* don't need health */
+		else if (!mostEffEquip.attack.name) metalEffRatio = 0;
 		else if (hdToTargetRatio > 1 && hsToTargetRatio < 1) metalEffRatio = Infinity; /* Need both - TODO compare ShieldGym hsEfficiency vs metalEquip hdEfficiency instead */
 		else if (hdToTargetRatio > 1) metalEffRatio = Infinity; /* Need damage */
 		else if (hsToTargetRatio < 1) metalEffRatio = 0; /* Need health */
@@ -1054,7 +1063,7 @@ function loadRuneTrinketCounter() {
 	const darkmode_colours = ' color: rgb(0,0,0); background-color: rgb(93,93,93);';
 
 	let chosen_colours = standard_colours;
-	if (game.options.menu.darkTheme.enabled == 2) {
+	if (game.options.menu.darkTheme.enabled === 2) {
 		chosen_colours = darkmode_colours;
 	}
 

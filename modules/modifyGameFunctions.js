@@ -23,10 +23,11 @@ if (typeof originalLoad !== 'function') {
 			loadAugustSettings();
 			atlantrimpRespecOverride();
 			resetVarsZone(true);
-			_setButtonsPortal();
+			_setButtonsPortal(false);
 			setupAddonUser();
 			updateAutoTrimpSettings(true);
 			RTC_populateRunetrinketCounterInfo();
+			alterAutoHeirloomElem();
 			atData.autoPerks.displayGUI();
 		} catch (e) {
 			debug(`Load save failed: ${e}`, 'error');
@@ -41,6 +42,7 @@ if (typeof originalresetGame !== 'function') {
 		const addonUser = game.global.addonUser;
 		originalresetGame(...arguments);
 		try {
+			game.global.lastOnline = new Date().getTime();
 			game.global.addonUser = addonUser;
 			atlantrimpRespecOverride();
 			_setButtonsPortal();
@@ -77,7 +79,7 @@ if (typeof game.options.menu.pauseGame.originalOnToggle !== 'function') {
 if (typeof originalstartFight !== 'function') {
 	var originalstartFight = startFight;
 	startFight = function () {
-		if (!game.global.fighting && MODULES.heirlooms.breedHeirloom) {
+		if (!game.global.fighting && MODULES && MODULES.heirlooms && MODULES.heirlooms.breedHeirloom) {
 			heirloomSwapping(true);
 		}
 		originalstartFight(...arguments);
@@ -142,15 +144,15 @@ if (typeof offlineProgress.originalFinish !== 'function') {
 			const totalOfflineTime = offlineProgress.totalOfflineTime / 1000;
 			const oneDayInSeconds = 86400;
 
-			/* Do not end Time Warp if it's been under 1s since you last pressed the finish button. */
+			/* do not end Time Warp if it's been under 1s since you last pressed the finish button. */
 			if (totalOfflineTime > oneDayInSeconds && Math.abs(startTime - currentTime) <= 1000) {
 				return;
 			}
 
-			/* Identify remaining Time Warp time */
+			/* identify remaining Time Warp time */
 			const offlineTime = Math.max(0, totalOfflineTime - oneDayInSeconds);
 			timeRun = offlineTime + Math.max(0, (currentTime - startTime) / 1000);
-			timeRun = Math.min(timeRun, oneDayInSeconds * 365); /* Cap Time Warp time at 1 year */
+			timeRun = Math.min(timeRun, oneDayInSeconds * 365); /* cap Time Warp time at 1 year */
 		}
 
 		if (game.options.menu.autoSave.enabled !== atConfig.autoSave) toggleSetting('autoSave');
@@ -165,7 +167,7 @@ if (typeof offlineProgress.originalFinish !== 'function') {
 				debug(`Running Time Warp again for ${offlineTime} to catchup on the time you missed whilst running it. ${remainingText}`, 'offline');
 				timeRun *= 1000;
 
-				const keys = ['lastOnline', 'portalTime', 'zoneStarted', 'lastSoldierSentAt', 'lastSkeletimp', 'lastChargeAt'];
+				const keys = ['lastOnline', 'portalTime', 'zoneStarted', 'lastSoldierSentAt', 'lastSkeletimp', 'lastBonePresimpt', 'lastChargeAt'];
 				_adjustGlobalTimers(keys, -timeRun);
 
 				offlineProgress.start();
@@ -240,17 +242,20 @@ if (typeof originalrunMap !== 'function') {
 	};
 }
 
-//Add misc functions onto the button to activate portals so that if a user wants to manually portal they can without losing the AT features.
+/* add misc functions onto the button to activate portals so that if a user wants to manually portal they can without losing the AT features. */
 if (typeof originalActivateClicked !== 'function') {
 	var originalActivateClicked = activateClicked;
 	activateClicked = function () {
+		let magmiteText;
 		if (!game.global.viewingUpgrades) {
 			downloadSave(true);
 			if (typeof Graphs !== 'undefined' && typeof Graphs.Push !== 'undefined' && typeof Graphs.Push.zoneData === 'function') Graphs.Push.zoneData();
 			if (!MODULES.portal.dontPushData) pushSpreadsheetData();
 			autoUpgradeHeirlooms();
 			autoHeirlooms(true);
-			autoMagmiteSpender(true);
+
+			magmiteText = autoMagmiteSpender(true);
+			alterAutoHeirloomElem();
 		}
 
 		originalActivateClicked(...arguments);
@@ -265,6 +270,8 @@ if (typeof originalActivateClicked !== 'function') {
 				u2Mutations.closeTree();
 			}
 		}
+
+		if (magmiteText) debug(magmiteText, 'magmite');
 	};
 }
 
@@ -842,7 +849,6 @@ function calculateMaxAfford_AT(itemObj, isBuilding, isEquipment, isJob, forceMax
 	}
 
 	if (forceRatio && (mostAfford <= 0 || isNaN(mostAfford))) return 0;
-	if (isBuilding && mostAfford > 1000000000) return 1000000000;
 	if (mostAfford <= 0) return 1;
 	if (forceMax !== false && mostAfford > forceMax) return forceMax;
 	if (isJob && itemObj.max && itemObj.owned + mostAfford > itemObj.max) return itemObj.max - itemObj.owned;

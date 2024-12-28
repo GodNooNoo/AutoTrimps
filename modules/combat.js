@@ -210,7 +210,7 @@ function _getGammaMaxStacks(worldType) {
 	return maxStacks;
 }
 
-function _getOurHealth(mapping, worldType) {
+function _getOurHealth(mapping, worldType, forceMax = false) {
 	const angelicOwned = masteryPurchased('angelic');
 	const runningTrappa = challengeActive('Trappapalooza');
 	const runningRevenge = challengeActive('Revenge') && game.challenges.Revenge.stacks === 19;
@@ -222,7 +222,7 @@ function _getOurHealth(mapping, worldType) {
 	const angelicDance = angelicOwned && (runningTrappa || runningRevenge || runningBerserk || frenzyCanExpire || dailyEmpower);
 	const shieldBreak = challengeActive('Bublé') || getCurrentQuest() === 8 || runningRevenge;
 
-	return remainingHealth(shieldBreak, angelicDance, worldType);
+	return remainingHealth(shieldBreak, angelicDance, worldType, forceMax);
 }
 
 function _adjustFrenzyDamage(damage) {
@@ -330,7 +330,10 @@ function _checkSuicideArmy(worldType, mapping, ourHealth, enemy, enemyDmgMax, en
 	const runningBerserk = challengeActive('Berserk') && game.challenges.Berserk.weakened !== 20;
 	const runningRevenge = challengeActive('Revenge') && game.challenges.Revenge.stacks === 19;
 
-	if (runningTrappa || runningArchaeology || runningBerserk) return { ourHealth, enemyDmgMult };
+	if (runningTrappa || runningArchaeology || runningBerserk) {
+		if (!game.global.fighting) ourHealth = _getOurHealth(mapping, worldType, true);
+		return { ourHealth, enemyDmgMult };
+	}
 
 	const isDaily = challengeActive('Daily');
 	const dailyChallenge = game.global.dailyChallenge;
@@ -368,12 +371,16 @@ function _checkSuicideArmy(worldType, mapping, ourHealth, enemy, enemyDmgMax, en
 	const notMapping = game.global.mapsUnlocked && !mapping && !poisonDebuff;
 	const mappingButDieAnyway = mapping && enemy.level > 1 && !game.global.voidBuff && mapObject.location !== 'Darkness' && game.global.titimpLeft === 0;
 
-	if (notMapping) {
+	if (notMapping || mappingButDieAnyway) {
 		suicideTrimps(true);
-		suicideTrimps(true);
-	} else if (mappingButDieAnyway) {
-		suicideTrimps(true);
-		runMap(false);
+		mappingButDieAnyway ? runMap(false) : suicideTrimps(true);
+
+		ourHealth = _getOurHealth(mapping, worldType, true);
+		return { ourHealth, enemyDmgMult };
+	}
+
+	if (shieldBreak) {
+		return { ourHealth, enemyDmgMult };
 	}
 
 	_setEquality(0);
@@ -429,10 +436,8 @@ function _getEnemyDmgMultiplier(mapping, worldType, enemy, fastEnemy) {
 			damageMult += 1 + dailyModifiers.crits.getMult(dailyChallenge.crits.strength);
 		}
 
-		if (worldType === 'map' && (dailyExplosive || dailyCrit) && !MODULES.maps.slowScumming) {
-			const explosiveMult = dailyExplosive ? dailyModifiers.explosive.getMult(dailyChallenge.explosive.strength) : 1;
-			if (dailyEmpowerCheck && dailyCrit) damageMult += 1 + dailyModifiers.crits.getMult(dailyChallenge.crits.strength);
-			if (dailyExplosive) damageMult += explosiveMult;
+		if (worldType === 'map' && dailyEmpowerCheck && dailyCrit && !MODULES.maps.slowScumming) {
+			damageMult += 1 + dailyModifiers.crits.getMult(dailyChallenge.crits.strength);
 		}
 
 		if (dailyCrit && !dailyEmpower && (worldType === 'world' || worldType === 'void') && gammaToTrigger > 1) damageMult += 1 + dailyModifiers.crits.getMult(dailyChallenge.crits.strength);
@@ -447,9 +452,10 @@ function _getEnemyDmgMultiplier(mapping, worldType, enemy, fastEnemy) {
 
 function _calculateEquality(mapping, worldType, enemy, enemyDmg, enemyDmgMult, fastEnemy, ourHealth, ourDmg, unluckyDmg, armyReady) {
 	/* 
-	Setup plaguebringer shield swapping. Will force us to kill the enemy slower for maximum plaguebringer transfer damage.
-	Checking if we are at max plaguebringer damage. If not then skip to next equality stack if current attack will kill the enemy. 
+	setup plaguebringer shield swapping. Will force us to kill the enemy slower for maximum plaguebringer transfer damage.
+	checking if we are at max plaguebringer damage. If not then skip to next equality stack if current attack will kill the enemy. 
     */
+
 	const bionicTalent = _getBionicTalent();
 	const maxDmg = calcOurDmg('max', 0, false, worldType, 'force', bionicTalent, true) * _getRampageBonus();
 	const maxEquality = getPerkLevel('Equality');
@@ -480,7 +486,7 @@ function _calculateEquality(mapping, worldType, enemy, enemyDmg, enemyDmgMult, f
 	const dailyExplosive = isDaily && typeof dailyChallenge.explosive !== 'undefined';
 	const explosiveMult = dailyExplosive ? 1 + dailyModifiers.explosive.getMult(dailyChallenge.explosive.strength) : runningDeso ? 6 : 1;
 
-	if ((dailyEmpowerToggle && !mapping && dailyExplosive) || MODULES.maps.slowScumming || (runningDeso && !armyReady)) {
+	if ((dailyEmpowerToggle && dailyExplosive) || MODULES.maps.slowScumming || (runningDeso && !armyReady)) {
 		const checkGamma = gammaToTrigger <= 1 ? gammaDmg : 1;
 		ourDmgMax = maxDmg * checkGamma;
 	}
@@ -568,14 +574,16 @@ function _calculateEquality(mapping, worldType, enemy, enemyDmg, enemyDmgMult, f
 	let equality = getEquality();
 
 	if (explosiveMult > 1) {
-		const explosiveDmg = _calculateDamageEquality(enemyDmg, enemyEqualityModifier, equality) * explosiveMult;
-		const notCheckingExplosive = !(worldType === 'map' && (dailyExplosive || dailyCrit) && !MODULES.maps.slowScumming);
-		if (enemyDmgMult > 1) enemyDmg /= enemyDmgMult;
-		if (notCheckingExplosive) enemyDmgMult += explosiveMult - 1;
-		enemyDmg *= enemyDmgMult;
-
-		if (explosiveDmg > ourHealth && (notCheckingExplosive || !disableDamageAmps)) {
-			equality = getEquality();
+		let maxTrimpDmg = maxDmg * (gammaToTrigger <= 1 ? gammaDmg : 1);
+		maxTrimpDmg = _calculateDamageEquality(maxTrimpDmg, ourEqualityModifier, equality);
+		if (maxTrimpDmg >= enemy.health) {
+			const explosiveDmg = _calculateDamageEquality(enemyDmg, enemyEqualityModifier, equality) * explosiveMult;
+			if (enemyDmgMult > 1) enemyDmg /= enemyDmgMult;
+			enemyDmgMult += explosiveMult - 1;
+			enemyDmg *= enemyDmgMult;
+			if (explosiveDmg > ourHealth && !disableDamageAmps) {
+				equality = getEquality();
+			}
 		}
 	}
 

@@ -1,5 +1,34 @@
 # General
 
+-   Improve setting tooltips
+
+    -   Tabs Completed
+        -   Buildings
+        -   Equipment
+        -   Combat
+        -   Maps
+        -   Challenges
+        -   Heirloom
+        -   Spire
+        -   Magma
+        -   Nature
+        -   Time Warp
+        -   Display
+        -   Import Export
+        -   Help
+        -   Test
+        -   Beta
+    -   Tabs Left
+        -   Core
+            -   Still need to do Auto Portal settings
+        -   Daily
+            -   Still need to do Auto Portal settings
+        -   Jobs
+            -   Gene settings
+                -   Do I just make it into a popup style setting??
+        -   C2
+            -   Haven't looked at all yet but there's millions of settings here
+
 # Mapping
 
 # Challenges
@@ -21,8 +50,7 @@
 
 # Help Window
 
-1. Fragment decision making
-2. Auto Gather decision making
+1. Auto Gather decision making
     - Change Auto Gather description to mention this
 
 # Bugs

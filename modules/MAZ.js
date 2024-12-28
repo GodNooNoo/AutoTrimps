@@ -19,7 +19,7 @@ function mapSettingsDisplay(elem, titleText) {
 
 	let tooltipText = '';
 	/* setting up default settings row */
-	const noDefaultRow = activeSetting.golden || activeSetting.profiles;
+	const noDefaultRow = activeSetting.golden || activeSetting.profile;
 	if (!noDefaultRow) {
 		tooltipText += _mapSettingsDefaultTitles(varPrefix, activeSetting, settingInputsDefault);
 
@@ -38,7 +38,7 @@ function mapSettingsDisplay(elem, titleText) {
 
 	/* as position 0 in the array stores base setting we need to take that out of the array before we start looping through rows */
 	const currSetting = noDefaultRow ? originalSetting : originalSetting.slice(1, originalSetting.length);
-	const profileData = activeSetting.profiles ? JSON.parse(localStorage.getItem('atSettingsProfiles')) : null;
+	const profileData = activeSetting.profile ? JSON.parse(localStorage.getItem('atSettingsProfiles')) : null;
 	let overflow = false;
 	/* looping through each setting and setting up the rows and inputting the data from the setting into the inputs */
 	for (let x = 0; x < activeSetting.maxSettings; x++) {
@@ -63,7 +63,7 @@ function mapSettingsDisplay(elem, titleText) {
 					continue;
 				}
 
-				if (activeSetting.profiles && name === 'settingString') {
+				if (activeSetting.profile && name === 'settingString') {
 					const profileName = currSetting[x].profileName;
 					vals[name] = profileData && profileData[profileName] ? profileData[profileName] : 'Empty Dataset. Overwrite or delete and add profile again.';
 					continue;
@@ -104,10 +104,10 @@ function mapSettingsDisplay(elem, titleText) {
 
 function mazSettingNames(titleName) {
 	if (titleName) {
-		return ['Map Farm', 'Map Bonus', 'Void Map', 'HD Farm', 'Raiding', 'Bionic Raiding', 'Toxicity', 'Bone Shrine', 'Auto Golden', 'Tribute Farm', 'Smithy Farm', 'Worshipper Farm', 'Quagmire', 'Archaeology', 'Insanity', 'Alchemy', 'Hypothermia', 'Desolation Gear Scumming', 'C2 Runner', 'C3 Runner', 'Profiles'];
+		return ['Map Farm', 'Map Bonus', 'Void Map', 'HD Farm', 'Raiding', 'Bionic Raiding', 'Toxicity', 'Bone Shrine', 'Auto Golden', 'Tribute Farm', 'Smithy Farm', 'Worshipper Farm', 'Quagmire', 'Archaeology', 'Insanity', 'Alchemy', 'Hypothermia', 'Desolation Gear Scumming', 'C2 Runner', 'C3 Runner', 'Profile', 'Gene Assist'];
 	}
 
-	return ['mapFarm', 'mapBonus', 'voidMap', 'hdFarm', 'raiding', 'bionic', 'toxicity', 'boneShrine', 'autoGolden', 'tributeFarm', 'smithyFarm', 'worshipperFarm', 'quagmire', 'archaeology', 'insanity', 'alchemy', 'hypothermia', 'desolation', 'profiles'];
+	return ['mapFarm', 'mapBonus', 'voidMap', 'hdFarm', 'raiding', 'bionic', 'toxicity', 'boneShrine', 'autoGolden', 'tributeFarm', 'smithyFarm', 'worshipperFarm', 'quagmire', 'archaeology', 'insanity', 'alchemy', 'hypothermia', 'desolation', 'profile', 'geneAssist'];
 }
 
 function _getActiveSetting(settingName = '', settingNames = []) {
@@ -127,7 +127,7 @@ function _getActiveSetting(settingName = '', settingNames = []) {
 
 	activeSetting.mapType = s.mapFarm || s.tributeFarm || s.smithyFarm || s.alchemy;
 
-	activeSetting.jobRatio = !s.golden && !s.raiding && !s.bionic && !s.smithyFarm && !s.profiles;
+	activeSetting.jobRatio = !s.golden && !s.raiding && !s.bionic && !s.smithyFarm && !s.profile;
 
 	activeSetting.repeatEvery = s.mapFarm || s.raiding || s.bionic || s.worshipperFarm || s.tributeFarm || s.smithyFarm || s.toxicity || s.archaeology || s.alchemy || s.desolation;
 
@@ -235,10 +235,15 @@ function _mapSettingsInputObj() {
 			settingInputsDefault: ['abandonZone'],
 			windowWidth: '50%'
 		},
-		Profiles: {
+		Profile: {
 			settingInputs: ['profileName', 'row', 'load', 'settingString', 'overwrite'],
 			settingInputsDefault: [],
 			windowWidth: '60%'
+		},
+		'Gene Assist': {
+			settingInputs: ['active', 'priority', 'row', 'world', 'endzone', 'cell', 'autoLevel', 'level', 'hdRatio', 'jobratio', 'repeatevery', 'special', 'gather', 'runType', 'challenge', 'challenge3', 'challengeOneOff'],
+			settingInputsDefault: ['geneAssistSpendingPct', 'geneAssistBleedVoids'],
+			windowWidth: '70%'
 		}
 	};
 }
@@ -268,7 +273,9 @@ function _mapSettingsDefaultVals() {
 		autostorage: false,
 		packrat: false,
 		recycle: false,
-		abandonZone: 0
+		abandonZone: 0,
+		geneSpendingPct: 1,
+		geneBleedVoids: 6
 	};
 }
 
@@ -382,7 +389,9 @@ function _mapSettingsValsKeys(s) {
 		windowNameProfiles: 'profileName',
 		windowLoadProfiles: 'load',
 		windowOverwriteProfiles: 'overwrite',
-		windowSettingStringProfiles: 'settingString'
+		windowSettingStringProfiles: 'settingString',
+		windowGeneSpentPct: 'geneAssistSpendingPct',
+		windowGeneBleedVoids: 'geneAssistBleedVoids'
 	};
 }
 
@@ -443,6 +452,11 @@ function _mapSettingsDefaultTitles(varPrefix, activeSettings, settingOrder) {
 
 	if (s.hdFarm) {
 		elements.push({ name: 'mapCap', class: `windowCell${varPrefix}`, title: 'Map<br>Cap' });
+	}
+
+	if (s.geneAssist) {
+		elements.push({ name: 'geneAssistSpendingPct', class: `windowGeneSpentPct`, title: 'Spending<br/>Pct' });
+		elements.push({ name: 'geneAssistBleedVoids', class: `windowGeneBleedVoids`, title: 'Bleed Voids<br/>Timer' });
 	}
 
 	const sortedElements = new Array(settingOrder.length).fill(null);
@@ -512,6 +526,11 @@ function _mapSettingsDefaultPopulateInputs(defaultVals, varPrefix, activeSetting
 	}
 	if (s.hdFarm) tooltipText += `<div class='windowDisplay windowCell${varPrefix}'><input value='${defaultVals.mapCap}' type='number' id='mapCap'/></div>`;
 
+	if (s.geneAssist) {
+		tooltipText += `<div class='windowDisplay windowGeneSpentPct'><input value='${defaultVals.geneSpendingPct}' type='number' id='geneAssistSpendingPct'/></div>`;
+		tooltipText += `<div class='windowDisplay windowGeneBleedVoids'><input value='${defaultVals.geneBleedVoids}' type='number' id='geneAssistBleedVoids'/></div>`;
+	}
+
 	tooltipText += `</div>`;
 
 	return tooltipText;
@@ -544,7 +563,7 @@ function _mapSettingsRowTitles(varPrefix, activeSettings, settingOrder) {
 	if (s.boneShrine) {
 		elements.push({ name: 'world', class: `windowWorld${varPrefix}`, title: 'Zone' });
 		elements.push({ name: 'boneamount', class: `windowBoneAmount`, title: 'To use' });
-		elements.push({ name: 'bonebelow', class: `windowBoneBelow`, title: 'Use below' });
+		elements.push({ name: 'bonebelow', class: `windowBoneBelow`, title: 'Use above' });
 		elements.push({ name: 'gather', class: `windowBoneGather`, title: 'Gather' });
 	}
 
@@ -610,7 +629,7 @@ function _mapSettingsRowTitles(varPrefix, activeSettings, settingOrder) {
 		elements.push({ name: 'bonfire', class: `windowBonfire`, title: 'Bonfires' });
 	}
 
-	if (s.profiles) {
+	if (s.profile) {
 		elements.push({ name: 'profileName', class: `windowNameProfiles`, title: 'Profile Name' });
 		elements.push({ name: 'load', class: `windowLoadProfiles`, title: 'Load Profile' });
 		elements.push({ name: 'settingString', class: `windowSettingStringProfiles`, title: 'Profile String' });
@@ -618,12 +637,12 @@ function _mapSettingsRowTitles(varPrefix, activeSettings, settingOrder) {
 	}
 
 	/* Misc Settings that have multiple categories */
-	if (!s.profiles) {
+	if (!s.profile) {
 		elements.push({ name: 'active', class: `windowActive${varPrefix}`, title: 'Active?' });
 		elements.push({ name: 'priority', class: `windowPriority${varPrefix}`, title: 'Priority' });
 	}
 
-	if (!s.golden && !s.profiles) {
+	if (!s.golden && !s.profile) {
 		if (!s.boneShrine) elements.push({ name: 'world', class: `windowWorld${varPrefix}`, title: 'Start<br/>Zone' });
 		if (!s.desolation) elements.push({ name: 'cell', class: `windowCell${varPrefix}`, title: 'Cell' });
 	}
@@ -694,13 +713,14 @@ function _mapSettingsRowPopulateInputs(vals, varPrefix, activeSettings, x, style
 	const dropdowns = mapSettingsDropdowns(atConfig.settingUniverse, vals, varPrefix);
 
 	let backgroundStyle = '';
-	if (atConfig.settingUniverse === 1 && !s.golden && !s.profiles) {
+	if (atConfig.settingUniverse === 1 && !s.golden && !s.profile) {
 		const natureStyles = {
 			None: 'unset',
 			Poison: 'rgba(50, 150, 50, 0.75)',
 			Wind: 'rgba(60, 75, 130, 0.75)',
 			Ice: 'rgba(50, 50, 200, 0.75)'
 		};
+
 		const empowerment = getZoneEmpowerment(vals.world);
 		backgroundStyle = ` background:${natureStyles[empowerment]}`;
 	}
@@ -813,7 +833,7 @@ function _mapSettingsRowPopulateInputs(vals, varPrefix, activeSettings, x, style
 		elements.push({ name: 'bonfire', class: `windowBonfire`, title: `<input value='${vals.bonfire}' type='number' id='windowBonfire${x}'/>` });
 	}
 
-	if (s.profiles) {
+	if (s.profile) {
 		elements.push({ name: 'profileName', class: `windowNameProfiles`, title: `<input value='${vals.profileName}' type='text' id='windowNameProfiles${x}'/>` });
 		elements.push({ name: 'load', class: `windowLoadProfiles`, title: `<button style='display: inline-block; width: auto;' onclick='_displayImportAutoTrimpsProfile("${LZString.compressToBase64(vals.settingString)}", "${vals.profileName}")'>Load Profile</button>`, style: 'text-align: center; white-space: nowrap; margin-left: 5px' });
 		elements.push({ name: 'settingString', class: `windowSettingStringProfiles`, title: `<input value='${vals.settingString}' type='text' id='windowSettingStringProfiles${x}' readonly/>` });
@@ -821,13 +841,13 @@ function _mapSettingsRowPopulateInputs(vals, varPrefix, activeSettings, x, style
 	}
 
 	/* misc settings that have multiple categories */
-	if (!s.profiles) {
+	if (!s.profile) {
 		elements.push({ name: 'active', class: `windowActive${varPrefix}`, title: buildNiceCheckbox('windowActive' + x, null, vals.active), style: 'text-align: center;' });
 		elements.push({ name: 'priority', class: `windowPriority${varPrefix}`, title: `<input value='${vals.priority}' type='number' id='windowPriority${x}'/>` });
 	}
 
-	if (!s.golden && !s.profiles) {
-		elements.push({ name: 'world', class: `windowWorld${varPrefix}`, title: `<input value='${vals.world}' type='number' id='windowWorld${x}'/>`, style: backgroundStyle, oninput: `_mapSettingsUpdatePreset("${x}", "${varPrefix}")` });
+	if (!s.golden && !s.profile) {
+		elements.push({ name: 'world', class: `windowWorld${varPrefix}`, title: `<input value='${vals.world}' type='number' id='windowWorld${x}' onchange='_mapSettingsUpdatePreset("${x}","${varPrefix}")'/>`, style: backgroundStyle });
 		if (!s.desolation) elements.push({ name: 'cell', class: `windowCell${varPrefix}`, title: `<input value='${vals.cell}' type='number' id='windowCell${x}'/>` });
 	}
 
@@ -919,7 +939,7 @@ function settingsWindowSave(titleText, varPrefix, activeSettings, reopen) {
 	const profileData = {};
 
 	/* default settings */
-	if (!s.golden && !s.profiles) {
+	if (!s.golden && !s.profile) {
 		defaultSetting.active = readNiceCheckbox(document.getElementById('windowActiveDefault'));
 		if (s.worshipperFarm) {
 			defaultSetting.shipSkipEnabled = readNiceCheckbox(document.getElementById('windowSkipShipEnabled'));
@@ -1059,7 +1079,7 @@ function settingsWindowSave(titleText, varPrefix, activeSettings, reopen) {
 			thisSetting.bonfire = parseInt(document.getElementById('windowBonfire' + x).value, 10);
 		}
 
-		if (s.profiles) {
+		if (s.profile) {
 			const profileName = document.getElementById('windowNameProfiles' + x).value;
 			thisSetting.profileName = profileName;
 			const overwriteData = readNiceCheckbox(document.getElementById('windowOverwriteProfiles' + x));
@@ -1067,12 +1087,12 @@ function settingsWindowSave(titleText, varPrefix, activeSettings, reopen) {
 		}
 
 		/* Misc Settings that have multiple categories */
-		if (!s.profiles) {
+		if (!s.profile) {
 			thisSetting.active = readNiceCheckbox(document.getElementById('windowActive' + x));
 			thisSetting.priority = parseInt(document.getElementById('windowPriority' + x).value, 10);
 		}
 
-		if (!s.golden && !s.profiles) {
+		if (!s.golden && !s.profile) {
 			thisSetting.world = parseInt(document.getElementById('windowWorld' + x).value, 10);
 			if (!s.desolation) {
 				thisSetting.cell = parseInt(document.getElementById('windowCell' + x).value, 10);
@@ -1131,7 +1151,7 @@ function settingsWindowSave(titleText, varPrefix, activeSettings, reopen) {
 			}
 		};
 
-		if (!s.golden && !s.profiles) {
+		if (!s.golden && !s.profile) {
 			checkSettingsErrors(isNaN(thisSetting.world) || thisSetting.world < 6, "needs a value for Start Zone that's greater than 5.");
 			checkSettingsErrors(+thisSetting.world > 1000, "needs a value for Start Zone that's less than 1000.");
 			checkSettingsErrors(+thisSetting.world + +thisSetting.level < 6 && !thisSetting.autoLevel, "can't have a zone and map combination below zone 6.");
@@ -1172,7 +1192,7 @@ function settingsWindowSave(titleText, varPrefix, activeSettings, reopen) {
 		return;
 	}
 
-	if (!s.profiles) {
+	if (!s.profile) {
 		if (s.golden) {
 			setting.sort(function (a, b) {
 				if (a.priority === b.priority) return 1;
@@ -1191,9 +1211,10 @@ function settingsWindowSave(titleText, varPrefix, activeSettings, reopen) {
 	if (profileData && Object.keys(profileData).length > 0) {
 		localStorage.setItem('atSettingsProfiles', JSON.stringify(profileData));
 	}
+
 	setPageSetting(varPrefix + 'Settings', setting, atConfig.settingUniverse);
 
-	if (!s.golden && !s.profiles) {
+	if (!s.golden && !s.profile) {
 		const value = atConfig.settingUniverse === 2 ? 'valueU2' : 'value';
 		game.global.addonUser.mapData[varPrefix + 'Settings'][value] = Array.from({ length: 31 }, () => ({ done: '' }));
 
@@ -1227,7 +1248,7 @@ function settingsWindowSave(titleText, varPrefix, activeSettings, reopen) {
 
 	/* disables Atlantrimp for 0.5 seconds and recalculates mapSettings variable. */
 	//This is to prevent the issue of Atlantrimp being run when you're saving settings.
-	_settingTimeout(500);
+	_settingTimeout('mapSettings', 500);
 	farmingDecision();
 }
 
@@ -1237,7 +1258,7 @@ function mapSettingsHelpWindow(titleText, activeSettings) {
 	const trimple = atConfig.settingUniverse === 1 ? 'Trimple' : 'Atlantrimp';
 	let mazHelp = 'Welcome to <b>' + titleText + '</b> settings!';
 
-	if (!s.golden && !s.profiles) mazHelp += " This is a powerful automation tool that allows you to set when maps should be automatically run. Here's a quick overview of what everything does:";
+	if (!s.golden && !s.profile) mazHelp += " This is a powerful automation tool that allows you to set when maps should be automatically run. Here's a quick overview of what everything does:";
 	else if (s.golden) {
 		mazHelp += " This is a powerful automation tool that allows you to set the order of golden upgrade purchases and how many of each type you'd like to have. Here's a quick overview of what everything does:";
 	} else {
@@ -1278,7 +1299,7 @@ function mapSettingsHelpWindow(titleText, activeSettings) {
 	}
 
 	//Top Row Information
-	if (!s.golden && !s.profiles) {
+	if (!s.golden && !s.profile) {
 		mazHelp += '<br><br>The top row section consists of toggles/inputs which add extra functions to the setting itself:<br></br><ul>';
 		mazHelp += '<li><b>Enabled</b> - A toggle to disable/enable the entire setting.</li>';
 		if (s.raiding && !s.bionic) {
@@ -1305,7 +1326,7 @@ function mapSettingsHelpWindow(titleText, activeSettings) {
 
 			mazHelp += '<li><b>Void Farm Job Ratio</b> - The job ratio to use when farming stats before running void maps.</li>';
 			mazHelp += "<li class=\"indent\">Input should look like '1,1,1,1' (Farmers, Lumberjacks, Miners, Scientists). If you don't want Farmers, Miners or Scientists you can input '0,1' for this setting.</li>";
-			mazHelp += "<li><b>Map Cap</b> - The maximum amount of maps you would like to run during this farm. If set to -1 it will repeat an Infinite amount of times and you'll have to manually stop farming, would only recommend this if you're confident you'll be able to get enough stats to finish the farm.</li>";
+			mazHelp += "<li><b>Map Cap</b> - The maximum amount of maps you would like to run during this farm. If using <b>Map Count</b> and you set to <b>-1</b> it will repeat an Infinite amount of times and you'll have to manually stop farming, would only recommend this if you're confident you'll be able to get enough stats to finish the farm.</li>";
 		}
 		if (s.boneShrine) {
 			mazHelp += '<li><b>Auto Spend Charges</b> - Enables the ability to automatically spend bone charges when above a certain value.</li>';
@@ -1336,18 +1357,18 @@ function mapSettingsHelpWindow(titleText, activeSettings) {
 		}
 	}
 
-	if (s.golden || s.profiles) mazHelp += '<br>';
+	if (s.golden || s.profile) mazHelp += '<br>';
 
 	//Row Settings
 	mazHelp += '</ul></br> The settings for each row that is added:<ul>';
 
 	mazHelp += "<li><span style='padding-left: 0.3%' class='mazDelete'><span class='icomoon icon-cross'></span></span> - Remove this line completely</li>";
-	if (!s.profiles) {
+	if (!s.profile) {
 		mazHelp += '<li><b>Active</b> - A toggle to disable/enable this line.</li>';
 		mazHelp += '<li><b>Priority</b> - If this setting has two or more lines set to trigger at the same cell on the same Zone, the line with the lowest priority will run first. This also determines sort order of lines in the UI.</li>';
 	}
-	if (!s.voidMap && !s.golden && !s.profiles) mazHelp += '<li><b>Zone</b> - The Zone that this line should run. Must be between 6 and 1000.</li>';
-	if (!s.golden && !s.desolation && !s.profiles) {
+	if (!s.voidMap && !s.golden && !s.profile) mazHelp += '<li><b>Zone</b> - The Zone that this line should run. Must be between 6 and 1000.</li>';
+	if (!s.golden && !s.desolation && !s.profile) {
 		mazHelp += '<li><b>Cell</b> - The cell number between 1 and 100 where this line should trigger. 1 is the first cell of the Zone, 100 is the final cell.</li>';
 		mazHelp += '<li class="indent"><b>Runs on the cell you have input or after if you have already gone past that cell on your zone.</b></li>';
 		mazHelp += '<li class="indent"><b>Doesn\'t take overkill into account so for example if you overkill past c100 with a c100 line it will be skipped.</b></li>';
@@ -1365,7 +1386,7 @@ function mapSettingsHelpWindow(titleText, activeSettings) {
 	if (s.special) mazHelp += "<li><b>Special</b> - The type of cache you'd like to run during this map. Will override metal cache inputs with wooden caches during the Transmute challenge.</li>";
 
 	//Row Settings
-	if (!s.profiles) mazHelp += '</ul></br><b>These inputs are specific to this setting and can be quite important for how you try to set this up:</b><ul><br>';
+	if (!s.profile) mazHelp += '</ul></br><b>These inputs are specific to this setting and can be quite important for how you try to set this up:</b><ul><br>';
 
 	if (s.voidMap) {
 		mazHelp += '<li><b>Start Zone</b> - The lower bound zone to run voids maps on.</li>';
@@ -1424,7 +1445,7 @@ function mapSettingsHelpWindow(titleText, activeSettings) {
 
 	if (s.boneShrine) {
 		mazHelp += '<li><b>To use</b> - How many bone charges to use on this line.</li>';
-		mazHelp += "<li><b>Use below</b> - This value will stop bone charges being spent when you're at or below this value.</li>";
+		mazHelp += "<li><b>Use above</b> - This value will stop bone charges being spent when you're at or below this value.</li>";
 		mazHelp += '<li><b>Run ' + trimple + '</b> - Will run ' + trimple + ' during this line. After using the bone shrine charges specified for this line it will stop AT purchasing equips until ' + trimple + ' has been run so that there is no wasted resources. <b>Will run ' + trimple + ' and use the charges after cell 95.</b></li>';
 		mazHelp += "<li><b>Gather</b> - Which resource you'd like to gather when popping a Bone Shrine charge to make use of Turkimp resource bonus.</li>";
 	}
@@ -1494,7 +1515,7 @@ function mapSettingsHelpWindow(titleText, activeSettings) {
 		mazHelp += `Will skip all ${heliumType} upgrades when running a C2.`;
 	}
 
-	if (s.profiles) {
+	if (s.profile) {
 		mazHelp += '<li><b>Profile Name</b> - The name of the settings profile.</li>';
 		mazHelp += '<li><b>Load Profile</b> - A button to load the profile.</li>';
 		mazHelp += "<li><b>Profile String</b> - The settings string that corresponds to the saved input. Can be copied but can't be adjusted.</li>";
@@ -1634,7 +1655,7 @@ function _mapSettingsUpdatePreset(index = '', varPrefix = document.getElementByI
 	const tributeFarm = varPrefix.includes('Tribute');
 	const smithyFarm = varPrefix.includes('Smithy');
 	const worshipperFarm = varPrefix.includes('Worshipper');
-	const profiles = varPrefix.includes('Profiles');
+	const profile = varPrefix.includes('Profile');
 
 	if (mapFarm || tributeFarm || smithyFarm || mapBonus || worshipperFarm || boneShrine || voidMap || hdFarm || raiding || golden) {
 		if (index !== '') {
@@ -1701,7 +1722,7 @@ function _mapSettingsUpdatePreset(index = '', varPrefix = document.getElementByI
 	}
 
 	//Changing rows to use the colour of the Nature type that the world input will be run on.
-	if (atConfig.settingUniverse === 1 && index !== '' && !profiles) {
+	if (atConfig.settingUniverse === 1 && index !== '' && !profile) {
 		const world = document.getElementById('windowWorld' + index);
 		const natureStyle = ['unset', 'rgba(50, 150, 50, 0.75)', 'rgba(60, 75, 130, 0.75)', 'rgba(50, 50, 200, 0.75)'];
 		const natureList = ['None', 'Poison', 'Wind', 'Ice'];
@@ -1768,8 +1789,13 @@ function mapSettingsDropdowns(universe = game.global.universe, vals, varPrefix) 
 
 	/* prestige goal */
 	dropdown.prestigeGoal = "<option value='All'" + (vals.prestigeGoal === 'All' ? " selected='selected'" : '') + '>All</option>';
-	for (let item in Object.keys(atData.equipment)) {
-		let key = Object.keys(atData.equipment)[item];
+	let equips = ['Shield', 'Dagger', 'Boots', 'Mace', 'Helmet', 'Polearm', 'Pants', 'Battleaxe', 'Shoulderguards', 'Greatsword', 'Breastplate'];
+	if (game.global.slowDone) {
+		equips.push('Arbalest', 'Gambeson');
+	}
+
+	for (let item in equips) {
+		let key = equips[item];
 		if (!game.global.slowDone && (key === 'Arbalest' || key === 'Gambeson')) continue;
 		dropdown.prestigeGoal += "<option value='" + key + "'" + (vals.prestigeGoal === key ? " selected='selected'" : '') + '>' + key + '</option>';
 	}
@@ -2117,13 +2143,13 @@ function autoJobsTable(settingGroup, ratioJobs, percentJobs) {
 		tooltipText += '</td></tr>';
 	}
 
-	const portalOptions = ['AutoJobs Off', 'Auto Ratios', 'Manual Ratios'];
+	const portalOptions = ['AutoJobs: Off', 'Auto Jobs: On', 'Auto Jobs: Manual'];
 	tooltipText += "<tr><td style='width: 40%'><div class='row'>";
 	tooltipText += "<div class='col-xs-6' style='width: 50%; padding-right: 5px'><span>Setting on Portal" + '</span></div>';
 	tooltipText += "<div class='col-xs-6 lowPad' style='width: 45.25%; text-align: right'><select style='width: 100%' id='autoJobPortal'><option value='0'>No change</option>";
 
 	for (let x = 0; x < portalOptions.length; x++) {
-		tooltipText += '<option' + (settingGroup.portalOption && settingGroup.portalOption === portalOptions[x].toLowerCase() ? " selected='selected'" : '') + " value='" + portalOptions[x].toLowerCase() + "'>" + portalOptions[x] + '</option>';
+		tooltipText += '<option' + (settingGroup.portalOption && settingGroup.portalOption === portalOptions[x] ? " selected='selected'" : '') + " value='" + portalOptions[x] + "'>" + portalOptions[x] + '</option>';
 	}
 
 	tooltipText += '</div></td></tr>';
@@ -2226,13 +2252,18 @@ function uniqueMapsDisplay(elem) {
 	const smithySettings = smithyDisplay ? ['MP Smithy', 'MP Smithy Daily', 'MP Smithy C3', 'MP Smithy One Off'] : [];
 	const settingGroup = getPageSetting('uniqueMapSettingsArray', atConfig.settingUniverse);
 
-	let tooltipText = "<div style='color: red; font-size: 1.1em; text-align: center;' id='autoJobsError'></div><p>Welcome to AT's Unique Map Settings! <span id='autoTooltipHelpBtn' role='button' style='font-size: 0.6vw;' class='btn btn-md btn-info' onclick='toggleAutoTooltipHelp();  _verticalCenterTooltip(smithySettings.length > 0 ? false : true, smithySettings.length > 0 ? true : false);'>Help</span></p><div id='autoTooltipHelpDiv' style='display: none'>";
+	let tooltipText = `
+    <div style='color: red; font-size: 1.1em; text-align: center;' id='autoJobsError'></div>
+    <p>Welcome to AT's Unique Map Settings! 
+    <span id='autoTooltipHelpBtn' role='button' style='font-size: 0.6vw;' class='btn btn-md btn-info' onclick='toggleAutoTooltipHelp(); _verticalCenterTooltip(${smithySettings && smithySettings.length > 0 ? false : true}, ${smithySettings.length > 0 ? true : false});'>Help</span></p>
+    <div id='autoTooltipHelpDiv' style='display: none'>
+`;
 	tooltipText += `${baseText}${smithyDisplay ? smithy : ''}`;
 	tooltipText += uniqueMapsTable(settingGroup, mapUnlocks, smithySettings);
 
 	const costText = "<div class='maxCenter'><div id='confirmTooltipBtn' class='btn btn-info btn-lg' onclick='uniqueMapsSave()'>Apply</div><div class='btn-lg btn btn-danger' onclick='cancelTooltip()'>Cancel</div></div>";
 
-	const ondisplay = () => _verticalCenterTooltip(smithySettings.length > 0 ? false : true, smithySettings.length > 0 ? true : false);
+	const ondisplay = () => _verticalCenterTooltip(smithySettings && smithySettings.length > 0 ? false : true, smithySettings.length > 0 ? true : false);
 	return [elem, tooltipText, costText, ondisplay];
 }
 
@@ -2254,7 +2285,7 @@ function uniqueMapsTable(settingGroup, mapUnlocks, smithySettings) {
 		tooltipText += "<div class='col-xs-5' style='width: 33%; padding-left: 5px; text-align: right'>Cell: <input class='structConfigCell' id='structMax" + item + "' type='number'  value='" + (setting && setting.cell ? setting.cell : 0) + "'/></div>";
 		tooltipText += '</div></td>';
 
-		if (smithySettings.length > x) {
+		if (smithySettings && smithySettings.length > x) {
 			item = smithySettings[x];
 			setting = settingGroup[item];
 			checkbox = buildNiceCheckbox('autoJobCheckbox' + item, 'autoCheckbox', setting && setting.enabled);
@@ -2603,6 +2634,10 @@ function c2RunnerSave() {
 
 	setPageSetting('c2RunnerSettings', setting, atConfig.settingUniverse);
 	cancelTooltip();
+
+	if (getPageSetting('autoPortalTimeout')) {
+		_settingTimeout('autoPortal');
+	}
 }
 
 //Hide Automation Buttons
@@ -2741,7 +2776,13 @@ function hideAutomationButtons() {
 		else if (item.includes('AT')) elemName = `auto${item.charAt(2).toUpperCase() + itemName.substr(3)}Parent`;
 
 		const elem = document.getElementById(elemName);
-		const elemVisible = setting[item] ? 'hidden' : '';
-		if (elem && elem.style.visibility !== elemVisible) elem.style.visibility = elemVisible;
+		let elemVisible = setting[item] ? 'hidden' : '';
+
+		if (['autoMapStatus', 'heHrStatus'].includes(elemName)) {
+			elemVisible = !setting[item] ? 'block' : 'none';
+			if (elem && elem.style.display !== elemVisible) elem.style.display = elemVisible;
+		} else {
+			if (elem && elem.style.visibility !== elemVisible) elem.style.visibility = elemVisible;
+		}
 	}
 }

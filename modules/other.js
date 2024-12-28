@@ -18,8 +18,8 @@ function isCorruptionActive(targetZone) {
 function isDoingSpire() {
 	if (!game.global.spireActive) return false;
 
-	const settingPrefix = trimpStats.isC3 ? 'c2' : trimpStats.isDaily ? 'd' : '';
-	const spireNo = getPageSetting(settingPrefix + 'IgnoreSpiresUntil');
+	const settingAffix = trimpStats.isC3 ? 'C2' : trimpStats.isDaily ? 'Daily' : '';
+	const spireNo = getPageSetting('spireIgnoreUntil' + settingAffix);
 	if (spireNo <= 0) return true;
 
 	const spireZone = (1 + spireNo) * 100;
@@ -29,15 +29,15 @@ function isDoingSpire() {
 function exitSpireCell(checkCell) {
 	if (!game.global.spireActive) return;
 
-	const settingPrefix = trimpStats.isC3 ? 'c2' : trimpStats.isDaily ? 'd' : '';
-	const exitCell = getPageSetting(settingPrefix + 'ExitSpireCell');
+	const settingAffix = trimpStats.isC3 ? 'C2' : trimpStats.isDaily ? 'Daily' : '';
+	const exitCell = getPageSetting('spireExitCell' + settingAffix);
 	const isSpireActive = isDoingSpire();
-	const cell = isSpireActive && exitCell > 0 && exitCell <= 100 ? exitCell : 100;
+	const cell = isSpireActive && exitCell >= 0 && exitCell <= 100 ? exitCell : 100;
 
 	if (checkCell) return cell;
-	if (cell <= 0) return;
+	if (cell < 0) return;
 
-	if (isSpireActive && game.global.lastClearedCell + 1 > cell) {
+	if (isSpireActive && (game.global.lastClearedCell + 1 > cell || cell === 0)) {
 		endSpire();
 		debug(`Exiting Spire ${game.global.spiresCompleted + 1} at cell ${exitCell}`, 'maps');
 	}
@@ -119,11 +119,14 @@ function challengesUnlockedObj(universe = atConfig.settingUniverse, excludeSpeci
 	let hze = universe === 2 ? game.stats.highestRadLevel.valueTotal() : game.stats.highestLevel.valueTotal();
 	let portalZone = hze;
 
+	const resourceName = _getPrimaryResourceInfo().name;
 	const autoPortal = getPageSetting('autoPortal', atConfig.settingUniverse);
-	const zoneSettings = ['Challenge 2', 'Challenge 3', 'Custom', 'One Off Challenges'];
+	const zoneSettings = ['Challenge 2', 'Challenge 3', `${resourceName} Challenges`, 'Custom', 'One Off Challenges'];
 
 	if (autoPortal.includes('Per Hour')) {
 		portalZone = getPageSetting('heliumHrDontPortalBefore', atConfig.settingUniverse);
+	} else if (autoPortal.includes(`${resourceName} Challenges`)) {
+		portalZone = getHighestLevelCleared() + 1;
 	} else if (zoneSettings.includes(autoPortal)) {
 		portalZone = getPageSetting('autoPortalZone', atConfig.settingUniverse);
 	}
@@ -141,10 +144,10 @@ function challengesUnlockedObj(universe = atConfig.settingUniverse, excludeSpeci
 			},
 			Metal: { unlockZone: 25, unlockedIn: ['c2', 'oneOff', 'c2Runner'] },
 			Size: { unlockZone: 35, unlockedIn: ['c2', 'oneOff', 'c2Runner'] },
-			Balance: { unlockZone: 40, unlockedIn: ['c2', 'heHr', 'autoPortal', 'c2Runner'] },
+			Balance: { unlockZone: 40, unlockedIn: ['c2', 'heHr', 'helium', 'c2Runner'] },
 			Scientist: { unlockZone: 40, unlockedIn: ['oneOff'] },
 			Meditate: { unlockZone: 45, unlockedIn: ['c2', 'oneOff', 'c2Runner'] },
-			Decay: { unlockZone: 55, unlockedIn: ['autoPortal', 'heHr'] },
+			Decay: { unlockZone: 55, unlockedIn: ['helium', 'heHr'] },
 			Trimp: { unlockZone: 60, unlockedIn: ['c2', 'oneOff'] },
 			Trapper: { unlockZone: 70, unlockedIn: ['c2', 'oneOff'] },
 			Electricity: {
@@ -152,32 +155,32 @@ function challengesUnlockedObj(universe = atConfig.settingUniverse, excludeSpeci
 				unlockCondition: function () {
 					return game.global.prisonClear >= 1;
 				},
-				unlockedIn: ['c2', 'heHr', 'autoPortal', 'c2Runner']
+				unlockedIn: ['c2', 'heHr', 'helium', 'c2Runner']
 			},
 			Frugal: { unlockZone: 100, unlockedIn: ['oneOff'] },
-			Life: { unlockZone: 110, unlockedIn: ['autoPortal', 'heHr'] },
+			Life: { unlockZone: 110, unlockedIn: ['helium', 'heHr'] },
 			Mapocalypse: { unlockZone: 115, unlockedIn: ['oneOff'] },
 			Coordinate: { unlockZone: 120, unlockedIn: ['c2', 'oneOff'] },
-			Crushed: { unlockZone: 125, unlockedIn: ['autoPortal', 'heHr'] },
+			Crushed: { unlockZone: 125, unlockedIn: ['helium', 'heHr'] },
 			Slow: { unlockZone: 130, unlockedIn: ['c2', 'oneOff', 'c2Runner'] },
-			Nom: { unlockZone: 145, unlockedIn: ['c2', 'heHr', 'autoPortal', 'c2Runner'] },
+			Nom: { unlockZone: 145, unlockedIn: ['c2', 'heHr', 'helium', 'c2Runner'] },
 			Mapology: { unlockZone: 150, unlockedIn: ['c2', 'oneOff', 'c2Runner'] },
-			Toxicity: { unlockZone: 165, unlockedIn: ['c2', 'heHr', 'autoPortal', 'c2Runner'] },
+			Toxicity: { unlockZone: 165, unlockedIn: ['c2', 'heHr', 'helium', 'c2Runner'] },
 			Devastation: { unlockZone: 170, unlockedIn: ['oneOff'] },
-			Watch: { unlockZone: 180, unlockedIn: ['c2', 'heHr', 'autoPortal', 'c2Runner'] },
-			Lead: { unlockZone: 180, unlockedIn: ['c2', 'heHr', 'autoPortal', 'c2Runner'] },
-			Corrupted: { unlockZone: 190, unlockedIn: ['heHr', 'autoPortal'] },
-			Domination: { unlockZone: 215, unlockedIn: ['heHr', 'autoPortal'] },
+			Watch: { unlockZone: 180, unlockedIn: ['c2', 'heHr', 'helium', 'c2Runner'] },
+			Lead: { unlockZone: 180, unlockedIn: ['c2', 'heHr', 'helium', 'c2Runner'] },
+			Corrupted: { unlockZone: 190, unlockedIn: ['heHr', 'helium'] },
+			Domination: { unlockZone: 215, unlockedIn: ['heHr', 'helium'] },
 			Obliterated: { unlockZone: 425, unlockedIn: ['c2'] },
 			Eradicated: {
-				unlockZone: 400,
+				unlockZone: 1,
 				unlockCondition: function () {
 					return game.global.totalSquaredReward >= 4500;
 				},
 				unlockedIn: ['c2']
 			},
-			Frigid: { unlockZone: 460, unlockedIn: ['c2', 'autoPortal'] },
-			Experience: { unlockZone: 600, unlockedIn: ['c2', 'heHr', 'autoPortal'] },
+			Frigid: { unlockZone: 460, unlockedIn: ['c2', 'helium'] },
+			Experience: { unlockZone: 600, unlockedIn: ['c2', 'heHr', 'helium'] },
 			//Fused Challenges - These need to go in reverse order of when they unlock.
 			Toxad: {
 				unlockZone: game.stats.highestLevel.valueTotal(),
@@ -236,26 +239,26 @@ function challengesUnlockedObj(universe = atConfig.settingUniverse, excludeSpeci
 			Downsize: { unlockZone: 20, unlockedIn: ['c2', 'oneOff', 'c2Runner'] },
 			Transmute: { unlockZone: 25, unlockedIn: ['c2', 'oneOff'] },
 			Unbalance: { unlockZone: 35, unlockedIn: ['c2', 'oneOff', 'c2Runner'] },
-			Bublé: { unlockZone: 40, unlockedIn: ['heHr', 'autoPortal'] },
+			Bublé: { unlockZone: 40, unlockedIn: ['heHr', 'helium'] },
 			Duel: { unlockZone: 45, unlockedIn: ['c2', 'oneOff', 'c2Runner'] },
-			Melt: { unlockZone: 50, unlockedIn: ['heHr', 'autoPortal'] },
+			Melt: { unlockZone: 50, unlockedIn: ['heHr', 'helium'] },
 			Trappapalooza: { unlockZone: 60, unlockedIn: ['c2', 'oneOff'] },
-			Quagmire: { unlockZone: 70, unlockedIn: ['heHr', 'autoPortal'] },
+			Quagmire: { unlockZone: 70, unlockedIn: ['heHr', 'helium'] },
 			Wither: { unlockZone: 70, unlockedIn: ['c2', 'oneOff'] },
 			Revenge: { unlockZone: 80, unlockedIn: ['oneOff'] },
-			Quest: { unlockZone: 85, unlockedIn: ['c2', 'oneOff', 'autoPortal', 'c2Runner'] },
-			Archaeology: { unlockZone: 90, unlockedIn: ['heHr', 'autoPortal'] },
-			Mayhem: { unlockZone: 100, unlockedIn: ['c2', 'autoPortal'] },
+			Quest: { unlockZone: 85, unlockedIn: ['c2', 'oneOff', 'helium', 'c2Runner'] },
+			Archaeology: { unlockZone: 90, unlockedIn: ['heHr', 'helium'] },
+			Mayhem: { unlockZone: 100, unlockedIn: ['c2', 'helium'] },
 			Storm: { unlockZone: 105, unlockedIn: ['c2', 'oneOff', 'c2Runner'] },
-			Insanity: { unlockZone: 110, unlockedIn: ['heHr', 'autoPortal'] },
+			Insanity: { unlockZone: 110, unlockedIn: ['heHr', 'helium'] },
 			Berserk: { unlockZone: 115, unlockedIn: ['c2', 'oneOff'] },
 			Exterminate: { unlockZone: 120, unlockedIn: ['oneOff'] },
-			Nurture: { unlockZone: 130, unlockedIn: ['heHr', 'autoPortal'] },
-			Pandemonium: { unlockZone: 150, unlockedIn: ['c2', 'autoPortal'] },
-			Alchemy: { unlockZone: 155, unlockedIn: ['heHr', 'autoPortal'] },
-			Hypothermia: { unlockZone: 175, unlockedIn: ['heHr', 'autoPortal'] },
+			Nurture: { unlockZone: 130, unlockedIn: ['heHr', 'helium'] },
+			Pandemonium: { unlockZone: 150, unlockedIn: ['c2', 'helium'] },
+			Alchemy: { unlockZone: 155, unlockedIn: ['heHr', 'helium'] },
+			Hypothermia: { unlockZone: 175, unlockedIn: ['heHr', 'helium'] },
 			Glass: { unlockZone: 175, unlockedIn: ['c2', 'oneOff'] },
-			Desolation: { unlockZone: 200, unlockedIn: ['c2', 'autoPortal'] },
+			Desolation: { unlockZone: 200, unlockedIn: ['c2', 'helium'] },
 			Smithless: { unlockZone: 201, unlockedIn: ['c2', 'oneOff', 'c2Runner'] }
 		};
 	}
@@ -290,15 +293,16 @@ function filterAndSortChallenges(obj, runType) {
 
 function autoPortalChallenges(runType = 'autoPortal', universe = atConfig.settingUniverse) {
 	let challenge = ['None'];
+	const resourceName = _getPrimaryResourceInfo().name;
 	if (universe === 0) universe = autoTrimpSettings.universeSetting.value + 1;
-	if (universe === 1 && runType === 'autoPortal') challenge = ['Off', 'Helium Per Hour'];
-	if (universe === 2 && runType === 'autoPortal') challenge = ['Off', 'Radon Per Hour'];
+	if (runType === 'autoPortal') challenge = ['Off', `${resourceName} Per Hour`];
 
 	let obj = challengesUnlockedObj(universe);
 	obj = filterAndSortChallenges(obj, runType);
 	challenge = [...challenge, ...obj];
 
 	if (runType === 'autoPortal') {
+		challenge.push(`${resourceName} Challenges`);
 		challenge.push('Custom');
 		challenge.push('One Off Challenges');
 	}
@@ -319,7 +323,7 @@ function c2RunnerChallengeOrder(universe = portalUniverse) {
 
 function _autoHeirloomMods(heirloomType) {
 	const rarities = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Magnificent', 'Ethereal', 'Magmatic', 'Plagued', 'Radiating', 'Hazardous', 'Enigmatic'];
-	const heirloomRarity = rarities.indexOf(getPageSetting('heirloomAutoRareToKeep', atConfig.settingUniverse));
+	const heirloomRarity = rarities.indexOf(getPageSetting(`heirloomAutoRareToKeep${heirloomType}`, atConfig.settingUniverse));
 	const heirloomModsArray = ['Any'];
 
 	if (typeof heirloomInfo !== 'function') {
@@ -345,13 +349,16 @@ function _shouldSkipHeirloom(item, heirlooms, heirloomRarity) {
 	return item === 'empty' || (heirloom.filter && !heirloom.filter()) || (heirloom.steps && heirloom.steps[heirloomRarity] === -1);
 }
 
-function checkLiqZoneCount(universe) {
-	if (game.options.menu.liquification.enabled === 0) return 0;
+function checkLiqZoneCount(universe = game.global.universe, getAmount = false) {
+	if (game.options.menu.liquification.enabled === 0 && universe === 1) return 0;
 
 	if (universe === 2) {
 		if (!u2Mutations.tree.Liq1.purchased) return 0;
+
 		let amt = 0.1;
 		if (u2Mutations.tree.Liq2.purchased) amt = 0.2;
+
+		if (getAmount) return amt;
 		return (getHighestLevelCleared(false, true) + 1) * amt;
 	}
 
@@ -362,6 +369,7 @@ function checkLiqZoneCount(universe) {
 	spireCount += Fluffy.isRewardActive('liquid') * 0.5;
 	const liquidAmount = spireCount / 20;
 
+	if (getAmount) return liquidAmount;
 	return game.stats.highestLevel.valueTotal() * liquidAmount;
 }
 
@@ -412,7 +420,7 @@ function _timeWarpSave() {
 	if (startTime > 0 && !game.options.menu.pauseGame.enabled) {
 		const timeRun = new Date().getTime() - startTime;
 		const reduceBy = totalOfflineTime + timeRun - ticksProcessed * 100;
-		const keys = ['lastOnline', 'portalTime', 'zoneStarted', 'lastSoldierSentAt', 'lastSkeletimp'];
+		const keys = ['lastOnline', 'portalTime', 'zoneStarted', 'lastSoldierSentAt', 'lastSkeletimp', 'lastBonePresimpt'];
 
 		_adjustGlobalTimers(keys, -reduceBy);
 		save(false, true);
@@ -711,13 +719,12 @@ function _challengeUnlockCheck() {
 
 function introMessage() {
 	const description = `
-		<p>Welcome to the SadAugust fork of AutoTrimps!</p>
-		<p><b>For those who are new to this fork here's some useful information on how to set it up.</b></p><br>
-		<p>One of the most important things is where the settings are stored. The vast majority of settings can be accessed by pressing the <b>AutoTrimps</b> button at the bottom of your Trimps window.</p><br>
+		<p>Welcome to the SadAugust fork of AutoTrimps! For those who are new to this fork here's some useful information on how to set it up.</p><br>
+		<p>One of the most important things is where the settings are stored, the vast majority of settings can be accessed by pressing the <b>AutoTrimps</b> button at the bottom of your Trimps window.</p>
 		<p>There are some setting that aren't located in the <b>AutoTrimps settings menu</b>, 2 of which are in the Trimps buy container (<b>AT AutoStructure & AutoJobs</b>), I recommend mousing over their tooltips and looking at what they do.</p>
-		<p>The last one placed elsewhere is the <b>AT Messages</b> button at the top right of your Trimps window. This will enabling this will allow the script to output messages into the message log window. You can control what gets printed to it by pressing the cogwheel to the right of it.</p>
-		<br><p>By default everything should be disabled but every setting has a detailed description and recommendation of how it should be setup. To start with I'd highly recommend looking through the settings in the <b>Core</b>, <b>Maps</b> and <b>Combat</b> tabs to identify which parts of the script you would like to use and go through the other tabs afterwards.</p>
-		<br><p>If you've previously used somebody elses AutoTrimps version you'll need to set everything up again as this isn't compatible with other forks. The settings are stored differently so you can easily go back and forth between other forks.</p>
+		<p>The last one placed elsewhere is the <b>AT Messages</b> button at the top right of your Trimps window. Enabling this will allow the script to output messages into the message log window. You can control the types of messages that get printed to it by pressing the cogwheel to the right of it.</p>
+		<p>Every setting has a detailed description and recommendation of how it should be setup. To start with I'd highly recommend looking through the settings in the <b>Core</b>, <b>Maps</b> and <b>Combat</b> tabs to identify which parts of the script you would like to use and go through the other tabs afterwards.</p>
+		<p>If you've used another version of AutoTrimps you'll need to set everything up again as this one isn't compatible with other forks. The settings are stored differently so you can easily go back and forth between other forks.</p>
 	`;
 
 	tooltip('Introduction Message', 'customText', 'lock', description, false, 'center');
@@ -917,15 +924,6 @@ function updateATVersion() {
 			if (typeof tempSettings['voidMapSettings'] !== 'undefined') {
 				if (autoTrimpSettings.voidMapSettings.value[0].hitsSurvived === undefined) autoTrimpSettings.voidMapSettings.value[0].hitsSurvived = 1;
 				if (autoTrimpSettings.voidMapSettings.valueU2[0].hitsSurvived === undefined) autoTrimpSettings.voidMapSettings.valueU2[0].hitsSurvived = 1;
-			}
-
-			saveSettings();
-		}
-
-		if (versionNumber < '6.5.26') {
-			const tempSettings = JSON.parse(localStorage.getItem('atSettings'));
-			if (typeof tempSettings['portalVoidIncrement'] !== 'undefined') {
-				autoTrimpSettings.portalVoidIncrement.enabledU2 = tempSettings.portalVoidIncrement.enabled;
 			}
 
 			saveSettings();
@@ -1214,6 +1212,194 @@ function updateATVersion() {
 		if (versionNumber < '6.5.96') {
 			setupAddonUser(true);
 		}
+
+		if (versionNumber < '6.5.991') {
+			const tempSettings = JSON.parse(localStorage.getItem('atSettings'));
+			if (typeof tempSettings['hitsSurvivedReset'] !== 'undefined') {
+				autoTrimpSettings.hitsSurvivedReset.value = tempSettings.hitsSurvivedReset.enabled ? 1 : 0;
+				autoTrimpSettings.hitsSurvivedReset.valueU2 = tempSettings.hitsSurvivedReset.enabledU2 ? 1 : 0;
+			}
+
+			saveSettings();
+		}
+
+		if (versionNumber < '6.5.993') {
+			const tempSettings = JSON.parse(localStorage.getItem('atSettings'));
+			if (typeof tempSettings['ExitSpireCell'] !== 'undefined') {
+				if (tempSettings.ExitSpireCell.value === 0) autoTrimpSettings.ExitSpireCell.value = -1;
+				if (tempSettings.dExitSpireCell.value === 0) autoTrimpSettings.dExitSpireCell.value = -1;
+				if (tempSettings.c2ExitSpireCell.value === 0) autoTrimpSettings.c2ExitSpireCell.value = -1;
+			}
+
+			saveSettings();
+		}
+
+		if (versionNumber < '6.5.994') {
+			const tempSettings = JSON.parse(localStorage.getItem('atSettings'));
+			if (typeof tempSettings['maxMapStacksForSpire'] !== 'undefined') {
+				autoTrimpSettings.spireMapBonusC2.enabled = tempSettings.maxMapStacksForSpire.enabled;
+				autoTrimpSettings.spireMapBonusDaily.enabled = tempSettings.maxMapStacksForSpire.enabled;
+			}
+
+			saveSettings();
+		}
+
+		if (versionNumber < '6.6.00') {
+			const tempSettings = JSON.parse(localStorage.getItem('atSettings'));
+			if (typeof tempSettings['jobSettingsArray'] !== 'undefined') {
+				const portalOptionMapping = {
+					'autojobs off': 'Auto Jobs: Off',
+					'auto ratios': 'Auto Jobs: On',
+					'manual ratios': 'Auto Jobs: Manual'
+				};
+
+				if (portalOptionMapping.hasOwnProperty(tempSettings.jobSettingsArray.value.portalOption)) {
+					autoTrimpSettings.jobSettingsArray.value.portalOption = portalOptionMapping[tempSettings.jobSettingsArray.value.portalOption];
+				}
+
+				if (portalOptionMapping.hasOwnProperty(tempSettings.jobSettingsArray.valueU2.portalOption)) {
+					autoTrimpSettings.jobSettingsArray.valueU2.portalOption = portalOptionMapping[tempSettings.jobSettingsArray.valueU2.portalOption];
+				}
+			}
+			if (typeof tempSettings['AutoStance'] !== 'undefined') {
+				autoTrimpSettings.autoStance.value = tempSettings.AutoStance.value;
+			}
+
+			if (typeof tempSettings['scryvoidmaps'] !== 'undefined') {
+				autoTrimpSettings.scryerVoidMaps.enabled = tempSettings.scryvoidmaps.enabled;
+				autoTrimpSettings.scryerVoidMapsDaily.enabled = tempSettings.dscryvoidmaps.enabled;
+			}
+
+			if (typeof tempSettings['AutoStanceWind'] !== 'undefined') {
+				autoTrimpSettings.autoStanceWind.enabled = tempSettings.AutoStanceWind.enabled;
+				autoTrimpSettings.autoStanceWindDaily.enabled = tempSettings.dAutoStanceWind.enabled;
+			}
+
+			if (typeof tempSettings['WindStackingZone'] !== 'undefined') {
+				autoTrimpSettings.windStackingZone.value = tempSettings.WindStackingZone.value;
+				autoTrimpSettings.windStackingZoneDaily.value = tempSettings.dWindStackingZone.value;
+			}
+
+			if (typeof tempSettings['WindStackingRatio'] !== 'undefined') {
+				autoTrimpSettings.windStackingRatio.value = tempSettings.WindStackingRatio.value;
+				autoTrimpSettings.windStackingRatioDaily.value = tempSettings.dWindStackingRatio.value;
+			}
+
+			if (typeof tempSettings['WindStackingLiq'] !== 'undefined') {
+				autoTrimpSettings.windStackingLiq.enabled = tempSettings.WindStackingLiq.enabled;
+				autoTrimpSettings.windStackingLiqDaily.enabled = tempSettings.dWindStackingLiq.enabled;
+			}
+
+			if (typeof tempSettings['IgnoreSpiresUntil'] !== 'undefined') {
+				autoTrimpSettings.spireIgnoreUntil.value = tempSettings.IgnoreSpiresUntil.value;
+				autoTrimpSettings.spireIgnoreUntilC2.value = tempSettings.c2IgnoreSpiresUntil.value;
+				autoTrimpSettings.spireIgnoreUntilDaily.value = tempSettings.dIgnoreSpiresUntil.value;
+			}
+
+			if (typeof tempSettings['ExitSpireCell'] !== 'undefined') {
+				autoTrimpSettings.spireExitCell.value = tempSettings.ExitSpireCell.value;
+				autoTrimpSettings.spireExitCellC2.value = tempSettings.c2ExitSpireCell.value;
+				autoTrimpSettings.spireExitCellDaily.value = tempSettings.dExitSpireCell.value;
+			}
+
+			if (typeof tempSettings['PreSpireNurseries'] !== 'undefined') {
+				autoTrimpSettings.spireNurseries.value = tempSettings.PreSpireNurseries.value;
+				autoTrimpSettings.spireNurseriesC2.value = tempSettings.c2PreSpireNurseries.value;
+				autoTrimpSettings.spireNurseriesDaily.value = tempSettings.dPreSpireNurseries.value;
+			}
+
+			if (typeof tempSettings['AutoDStanceSpire'] !== 'undefined') {
+				autoTrimpSettings.spireDominanceStance.enabled = tempSettings.AutoDStanceSpire.enabled;
+				autoTrimpSettings.spireDominanceStanceC2.enabled = tempSettings.c2AutoDStanceSpire.enabled;
+				autoTrimpSettings.spireDominanceStanceDaily.enabled = tempSettings.dAutoDStanceSpire.enabled;
+			}
+
+			if (typeof tempSettings['maxMapStacksForSpire'] !== 'undefined') {
+				autoTrimpSettings.spireMapBonus.enabled = tempSettings.maxMapStacksForSpire.enabled;
+			}
+
+			if (typeof tempSettings['maxMapStacksForSpireC2'] !== 'undefined') {
+				autoTrimpSettings.spireMapBonusC2.enabled = tempSettings.maxMapStacksForSpireC2.enabled;
+			}
+
+			if (typeof tempSettings['maxMapStacksForSpireDaily'] !== 'undefined') {
+				autoTrimpSettings.spireMapBonusDaily.enabled = tempSettings.maxMapStacksForSpireDaily.enabled;
+			}
+
+			if (typeof tempSettings['hitsSurvivedSpire'] !== 'undefined') {
+				autoTrimpSettings.spireHitsSurvived.value = tempSettings.hitsSurvivedSpire.value;
+			}
+
+			if (typeof tempSettings['hitsSurvivedSpireC2'] !== 'undefined') {
+				autoTrimpSettings.spireHitsSurvivedC2.value = tempSettings.hitsSurvivedSpireC2.value;
+			}
+
+			if (typeof tempSettings['hitsSurvivedSpireDaily'] !== 'undefined') {
+				autoTrimpSettings.spireHitsSurvivedDaily.value = tempSettings.hitsSurvivedSpireDaily.value;
+			}
+
+			if (typeof tempSettings['skipSpires'] !== 'undefined') {
+				autoTrimpSettings.spireSkipMapping.enabled = tempSettings.skipSpires.enabled;
+			}
+
+			if (typeof tempSettings['skipSpiresC2'] !== 'undefined') {
+				autoTrimpSettings.spireSkipMappingC2.enabled = tempSettings.skipSpiresC2.enabled;
+			}
+
+			if (typeof tempSettings['skipSpiresDaily'] !== 'undefined') {
+				autoTrimpSettings.spireSkipMappingDaily.enabled = tempSettings.skipSpiresDaily.enabled;
+			}
+
+			if (typeof tempSettings['autoenlight'] !== 'undefined') {
+				autoTrimpSettings.autoEnlightenment.enabled = tempSettings.autoenlight.enabled;
+			}
+
+			if (typeof tempSettings['c2disableFinished'] !== 'undefined') {
+				autoTrimpSettings.c2DisableFinished.enabled = tempSettings.c2disableFinished.enabled;
+				autoTrimpSettings.c2DisableFinished.enabledU2 = tempSettings.c2disableFinished.enabledU2;
+			}
+
+			saveSettings();
+		}
+
+		if (versionNumber < '6.6.001') {
+			const tempSettings = JSON.parse(localStorage.getItem('atSettings'));
+			if (typeof tempSettings['portalVoidIncrement'] !== 'undefined') {
+				autoTrimpSettings.portalRespec.value = tempSettings.portalVoidIncrement.enabled ? 2 : 0;
+				autoTrimpSettings.portalRespec.valueU2 = tempSettings.portalVoidIncrement.enabledU2 ? 2 : 0;
+			}
+
+			saveSettings();
+		}
+
+		if (versionNumber < '6.6.03') {
+			const tempSettings = JSON.parse(localStorage.getItem('atSettings'));
+			if (typeof tempSettings['autoHeirlooms'] !== 'undefined') {
+				autoTrimpSettings.autoHeirlooms.enabled = false;
+				autoTrimpSettings.autoHeirlooms.enabledU2 = false;
+			}
+
+			saveSettings();
+		}
+
+		if (versionNumber < '6.6.10') {
+			const tempSettings = JSON.parse(localStorage.getItem('atSettings'));
+			if (typeof tempSettings['autoPortal'] !== 'undefined') {
+				const heliumChallenges = autoPortalChallenges('helium', 1);
+				if (heliumChallenges.indexOf(autoTrimpSettings.autoPortal.selected) !== -1) {
+					autoTrimpSettings.heliumChallenge.selected = autoTrimpSettings.autoPortal.selected;
+					autoTrimpSettings.autoPortal.selected = 'Helium Challenges';
+				}
+
+				const radonChallenges = autoPortalChallenges('helium', 2);
+				if (radonChallenges.indexOf(autoTrimpSettings.autoPortal.selectedU2) !== -1) {
+					autoTrimpSettings.heliumChallenge.selectedU2 = autoTrimpSettings.autoPortal.selectedU2;
+					autoTrimpSettings.autoPortal.selectedU2 = 'Radon Challenges';
+				}
+			}
+
+			saveSettings();
+		}
 	}
 
 	/* 	Print link to changelog if the user is in TW when they first load the update so that they can look at any relevant notes.
@@ -1233,4 +1419,41 @@ function updateATVersion() {
 
 	updateAutoTrimpSettings(true);
 	saveSettings();
+}
+
+function alterHeirloomWindow() {
+	const elem = document.getElementById('heirloomTitleBar');
+	if (!elem) return;
+
+	elem.childNodes[0].style.width = '33%';
+	elem.childNodes[0].style.fontSize = '1.3vw';
+	elem.childNodes[1].style.width = '40%';
+	elem.childNodes[1].style.fontSize = '1.3vw';
+	elem.childNodes[2].style.width = '27%';
+
+	if (!document.getElementById('heirloomSwappingBtn')) {
+		const description = autoTrimpSettings.heirloomAuto.description();
+		const initial = _createElement('DIV', {
+			id: `heirloomSwappingBtn`,
+			style: '',
+			class: 'pointer noselect heirBtn heirInfo settingBtntrue',
+			onclick: 'settingChanged("heirloom", true)',
+			onmouseover: `tooltip("Toggle Auto Heirlooms", "customText", event, '${description}')`,
+			onmouseout: 'tooltip("hide")'
+		});
+
+		initial.innerHTML = 'Heirloom Swapping';
+		const column = elem.children[2];
+		column.insertBefore(initial, column.firstChild);
+		alterAutoHeirloomElem();
+	}
+}
+
+function alterAutoHeirloomElem() {
+	const elem = document.getElementById('heirloomSwappingBtn');
+	if (!elem) return;
+
+	elem.classList.remove('settingBtnfalse');
+	elem.classList.remove('settingBtntrue');
+	elem.classList.add(getPageSetting('heirloom') ? 'settingBtntrue' : 'settingBtnfalse');
 }
